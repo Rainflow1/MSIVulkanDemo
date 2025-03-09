@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    "glfw3",
+    "glm",
+    {
+      "name": "imgui",
+      "features": ["freetype", "glfw-binding", "vulkan-binding"]
+    }
+  ]
+}
