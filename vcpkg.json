@@ -4,7 +4,13 @@
     "glm",
     {
       "name": "imgui",
-      "features": ["freetype", "glfw-binding", "vulkan-binding"]
-    }
+      "features": [
+        "freetype",
+        "glfw-binding",
+        "vulkan-binding"
+      ]
+    },
+    "vulkan",
+    "shaderc"
   ]
 }
