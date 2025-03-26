@@ -41,6 +41,7 @@ public:
 
         initWindow();
         vulkan = std::unique_ptr<Vulkan>(new Vulkan(window));
+        imgui();
         mainLoop();
         cleanup();
 
@@ -61,6 +62,22 @@ private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
         auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
         app->windowResized = true;
+    }
+    
+    void imgui(){
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+        ImGui::StyleColorsDark();
+
+        ImGui_ImplGlfw_InitForVulkan(window, true);
+        ImGui_ImplVulkan_InitInfo init_info = vulkan->getImguiInitInfo();
+        ImGui_ImplVulkan_Init(&init_info);
+
     }
 
     void mainLoop(){

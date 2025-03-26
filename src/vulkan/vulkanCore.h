@@ -139,6 +139,28 @@ public:
         device->waitForIdle();
     }
 
+    ImGui_ImplVulkan_InitInfo getImguiInitInfo(){
+
+        ImGui_ImplVulkan_InitInfo init_info = {};
+        //init_info.ApiVersion = VK_API_VERSION_1_3;
+        init_info.Instance = *instance;
+        init_info.PhysicalDevice = *physicalDevice;
+        init_info.Device = *device;
+        init_info.QueueFamily = physicalDevice->findQueueFamilies(*physicalDevice).graphicsFamily.value();
+        init_info.Queue = device->getGraphicsQueue();
+        init_info.PipelineCache = g_PipelineCache;
+        init_info.DescriptorPool = g_DescriptorPool;
+        init_info.RenderPass = graphicsPipeline->getRenderPass();
+        init_info.Subpass = 0;
+        init_info.MinImageCount = 3;
+        init_info.ImageCount = wd->ImageCount;
+        init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+        init_info.Allocator = g_Allocator;
+        init_info.CheckVkResultFn = check_vk_result;
+
+        return init_info;
+    }
+
 private:
 
     
