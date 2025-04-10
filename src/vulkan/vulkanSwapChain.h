@@ -33,6 +33,113 @@ private:
 public:
     VulkanSwapChain(std::shared_ptr<VulkanDeviceI> device): device(device){
 
+        createSwapChain();
+
+    }
+
+    ~VulkanSwapChain(){
+        for(auto image : imageViews){
+            delete image;
+        }
+
+        if(swapChain){
+            vkDestroySwapchainKHR(*device, swapChain, nullptr);
+        }
+    }
+
+    VkFormat getImageFormat(){
+        return swapChainImageFormat;
+    }
+
+    VkExtent2D getSwapChainExtent(){
+        return swapChainExtent;
+    }
+
+    std::shared_ptr<VulkanDeviceI> getDevice(){
+        return device;
+    }
+
+    std::shared_ptr<VulkanFramebuffer> getFramebuffer(std::weak_ptr<VulkanGraphicsPipeline> pipeline, uint32_t imageId){
+        if(imageId >= imageViews.size()){
+            throw std::exception("Image index out of bounds");
+        }
+        return imageViews[imageId]->createFramebuffer(shared_from_this(), pipeline.lock()->getRenderPass());
+    }
+
+    uint32_t getNextImage(VulkanSemaphore& semaphore){
+        uint32_t imageIndex;
+        VkResult result = vkAcquireNextImageKHR(*device, swapChain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &imageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreateSwapChain();
+            return -1;
+        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("failed to acquire swap chain image!");
+        }
+
+        return imageIndex;
+    }
+
+    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(){
+        if(graphicsPipeline.expired()){
+            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this());
+            graphicsPipeline = gp;
+            return gp;
+        }else{
+            return graphicsPipeline.lock();
+        }
+    }
+
+    void presentImage(VulkanSemaphore& signalSemaphore, uint32_t imageId){
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+        VkSemaphore signalSemaphores[] = {signalSemaphore};
+
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+        VkSwapchainKHR swapChains[] = {swapChain};
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageId;
+        presentInfo.pResults = nullptr;
+        VkResult result = vkQueuePresentKHR(device->getPresentQueue(), &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            recreateSwapChain();
+        } else if (result != VK_SUCCESS) {
+            throw std::runtime_error("failed to present swap chain image!");
+        }
+    }
+
+    void recreateSwapChain(){
+        vkDeviceWaitIdle(*device);
+
+        VkSwapchainKHR oldSwapChain = swapChain;
+        std::vector<VulkanImageView*> oldImageViews = imageViews;
+
+        createSwapChain(oldSwapChain);
+
+        for(int i = 0; i < imageViews.size(); i++){
+            if(i < oldImageViews.size())
+                imageViews[i]->recreateFramebuffer(*oldImageViews[i]);
+        }
+
+        for(auto image : oldImageViews){
+            delete image;
+        }
+
+        vkDestroySwapchainKHR(*device, oldSwapChain, nullptr);
+
+        // TODO add mechanism to recreate framebuffers and return
+        // create new swapchain
+        // delete old image view and old framebuffers with them
+        // delete old swapchain
+    }
+
+private:
+
+    void createSwapChain(VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE){
         SwapChainSupportDetails swapChainSupport = device->getPhysicalDevice().querySwapChainSupport(device->getPhysicalDevice());
 
         VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -76,7 +183,7 @@ public:
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
 
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
+        createInfo.oldSwapchain = oldSwapChain;
 
         if (vkCreateSwapchainKHR(*device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
@@ -86,73 +193,11 @@ public:
         swapChainImages.resize(imageCount);
         vkGetSwapchainImagesKHR(*device, swapChain, &imageCount, swapChainImages.data());
 
+        imageViews.clear();
         for(auto swapChainImage : swapChainImages){
             imageViews.push_back(new VulkanImageView(*this, swapChainImage));// TODO
         }
     }
-
-    ~VulkanSwapChain(){
-        for(auto image : imageViews){
-            delete image;
-        }
-
-        if(swapChain){
-            vkDestroySwapchainKHR(*device, swapChain, nullptr);
-        }
-    }
-
-    VkFormat getImageFormat(){
-        return swapChainImageFormat;
-    }
-
-    VkExtent2D getSwapChainExtent(){
-        return swapChainExtent;
-    }
-
-    std::shared_ptr<VulkanDeviceI> getDevice(){
-        return device;
-    }
-
-    std::shared_ptr<VulkanFramebuffer> getFramebuffer(std::weak_ptr<VulkanGraphicsPipeline> pipeline, uint32_t imageId){
-        if(imageId >= imageViews.size()){
-            throw std::exception("Image index out of bounds");
-        }
-        return imageViews[imageId]->createFramebuffer(shared_from_this(), pipeline.lock()->getRenderPass());
-    }
-
-    uint32_t getNextImage(VulkanSemaphore& semaphore){
-        uint32_t imageIndex;
-        vkAcquireNextImageKHR(*device, swapChain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &imageIndex);
-        return imageIndex;
-    }
-
-    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(){
-        if(graphicsPipeline.expired()){
-            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this());
-            graphicsPipeline = gp;
-            return gp;
-        }else{
-            return graphicsPipeline.lock();
-        }
-    }
-
-    void presentImage(VulkanSemaphore& signalSemaphore, uint32_t imageId){
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-        VkSemaphore signalSemaphores[] = {signalSemaphore};
-
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
-        VkSwapchainKHR swapChains[] = {swapChain};
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageId;
-        presentInfo.pResults = nullptr;
-        vkQueuePresentKHR(device->getPresentQueue(), &presentInfo);
-    }
-
-private:
 
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
         for (const auto& availableFormat : availableFormats) {

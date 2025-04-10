@@ -13,7 +13,87 @@
 
 namespace MSIVulkanDemo{
 
-class VulkanFramebuffer;
+class VulkanFramebuffer{
+private:
+    std::shared_ptr<VulkanSwapChainI> swapChain;
+    VkImageView imageView;
+    VkRenderPass renderPass;
+
+    VkFramebuffer framebuffer = nullptr;    
+
+public:
+    VulkanFramebuffer(std::shared_ptr<VulkanSwapChainI> swapChain, VkImageView& imageView, VkRenderPass& renderPass): swapChain(swapChain), imageView(imageView), renderPass(renderPass){
+
+        VkImageView attachments[] = {
+            imageView
+        };
+    
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swapChain->getSwapChainExtent().width;
+        framebufferInfo.height = swapChain->getSwapChainExtent().height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(*swapChain->getDevice(), &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS){
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+    }
+
+    ~VulkanFramebuffer(){
+        if(framebuffer){
+            vkDestroyFramebuffer(*swapChain->getDevice(), framebuffer, nullptr);
+        }
+    }
+
+    void beginRenderPass(VkCommandBuffer& commandBuffer){
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = framebuffer;
+
+        renderPassInfo.renderArea.offset = {0, 0};
+        renderPassInfo.renderArea.extent = swapChain->getSwapChainExtent();
+
+        VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    void recreateFramebuffer(VkImageView& newImageView){
+
+        imageView = newImageView;
+
+        if(framebuffer){
+            vkDestroyFramebuffer(*swapChain->getDevice(), framebuffer, nullptr);
+        }
+
+        VkImageView attachments[] = {
+            imageView
+        };
+    
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swapChain->getSwapChainExtent().width;
+        framebufferInfo.height = swapChain->getSwapChainExtent().height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(*swapChain->getDevice(), &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS){
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+
+    }
+
+private:
+
+};
 
 class VulkanImageView{
 private:
@@ -73,61 +153,15 @@ public:
         return fb;
     }
 
-};
-
-class VulkanFramebuffer{
-private:
-    std::shared_ptr<VulkanSwapChainI> swapChain;
-    VkImageView imageView;
-    VkRenderPass renderPass;
-
-    VkFramebuffer framebuffer = nullptr;    
-
-public:
-    VulkanFramebuffer(std::shared_ptr<VulkanSwapChainI> swapChain, VkImageView& imageView, VkRenderPass& renderPass): swapChain(swapChain), imageView(imageView), renderPass(renderPass){
-
-        VkImageView attachments[] = {
-            imageView
-        };
-    
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
-        framebufferInfo.width = swapChain->getSwapChainExtent().width;
-        framebufferInfo.height = swapChain->getSwapChainExtent().height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(*swapChain->getDevice(), &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS){
-            throw std::runtime_error("failed to create framebuffer!");
+    void recreateFramebuffer(VulkanImageView& oldImageView){
+        for(auto fb : oldImageView.framebuffers){
+            if(!fb.expired()){
+                auto fbLock = fb.lock();
+                fbLock->recreateFramebuffer(imageView);
+                framebuffers.push_back(fbLock);
+            }
         }
     }
-
-    ~VulkanFramebuffer(){
-        if(framebuffer){
-            vkDestroyFramebuffer(*swapChain->getDevice(), framebuffer, nullptr);
-        }
-    }
-
-    void beginRenderPass(VkCommandBuffer& commandBuffer){
-        VkRenderPassBeginInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = renderPass;
-        renderPassInfo.framebuffer = framebuffer;
-
-        renderPassInfo.renderArea.offset = {0, 0};
-        renderPassInfo.renderArea.extent = swapChain->getSwapChainExtent();
-
-        VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
-
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    }
-
-private:
-
 };
 
 }

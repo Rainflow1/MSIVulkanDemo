@@ -48,7 +48,7 @@ private:
     VkFence fence = nullptr;
 
 public:
-    VulkanFence(std::shared_ptr<VulkanDeviceI> device, bool initSignaled = false): device(device){
+    VulkanFence(std::shared_ptr<VulkanDeviceI> device, bool initSignaled = false): device(device){ // TODO change initSignaled to function
 
         VkFenceCreateInfo fenceInfo{};
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

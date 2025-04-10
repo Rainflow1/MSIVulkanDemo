@@ -34,11 +34,15 @@ private:
     std::shared_ptr<VulkanDevice> device;
     std::shared_ptr<VulkanSwapChain> swapChain;
     std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline;
-    std::shared_ptr<VulkanCommandBuffer> commandBuffer;
 
-    std::shared_ptr<VulkanSemaphore> imageAvailableSemaphore;
-    std::shared_ptr<VulkanSemaphore> renderFinishedSemaphore;
-    std::shared_ptr<VulkanFence> inFlightFence;
+    std::vector<std::shared_ptr<VulkanCommandBuffer>> commandBuffers;
+
+    std::vector<std::shared_ptr<VulkanSemaphore>> imageAvailableSemaphores;
+    std::vector<std::shared_ptr<VulkanSemaphore>> renderFinishedSemaphores;
+    std::vector<std::shared_ptr<VulkanFence>> inFlightFences;
+
+    const int MAX_FRAMES_IN_FLIGHT = 2;
+    uint64_t currentFrame = 0;
 
 public:
     Vulkan(GLFWwindow* window){
@@ -48,11 +52,12 @@ public:
         device = physicalDevice->createLogicDevice();
         swapChain = device->createSwapChain();
         graphicsPipeline = swapChain->createGraphicsPipeline();
-        commandBuffer = device->createCommandBuffer();
+        
+        commandBuffers = {device->createCommandBuffer(), device->createCommandBuffer()};
 
-        imageAvailableSemaphore = device->createSemaphore();
-        renderFinishedSemaphore = device->createSemaphore();
-        inFlightFence = device->createFence(true);
+        imageAvailableSemaphores = {device->createSemaphore(), device->createSemaphore()};
+        renderFinishedSemaphores = {device->createSemaphore(), device->createSemaphore()};
+        inFlightFences = {device->createFence(true), device->createFence(true)};
     }
 
     ~Vulkan(){
@@ -63,21 +68,36 @@ public:
     }
 
     void drawFrame(){
-        inFlightFence->reset();
 
-        commandBuffer->reset();
+        uint32_t frameIndex = currentFrame%MAX_FRAMES_IN_FLIGHT;
 
-        uint32_t imageId = swapChain->getNextImage(*imageAvailableSemaphore);
+        inFlightFences[frameIndex]->reset();
+
+        commandBuffers[frameIndex]->reset();
+
+        uint32_t imageId = swapChain->getNextImage(*imageAvailableSemaphores[frameIndex]);
+
+        if(imageId == -1){
+            return;
+        }
 
         auto frameBuffer = swapChain->getFramebuffer(graphicsPipeline, imageId);
-        commandBuffer->begin(*frameBuffer);
-        graphicsPipeline->bind(*commandBuffer);
-        commandBuffer->draw();
-        commandBuffer->end();
-        commandBuffer->submit(*imageAvailableSemaphore, *renderFinishedSemaphore, *inFlightFence);
+        commandBuffers[frameIndex]->begin(*frameBuffer);
+        graphicsPipeline->bind(*commandBuffers[frameIndex]);
+        commandBuffers[frameIndex]->draw();
+        commandBuffers[frameIndex]->end();
+        commandBuffers[frameIndex]->submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
 
-        swapChain->presentImage(*renderFinishedSemaphore, imageId);
-        inFlightFence->waitFor();
+        swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);
+        inFlightFences[frameIndex]->waitFor();
+
+        currentFrame++;
+    }
+
+    void windowResized(GLFWwindow* window){
+        if(swapChain){
+            swapChain->recreateSwapChain();
+        }
     }
 
     void waitIdle(){

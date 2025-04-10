@@ -26,6 +26,7 @@ private:
     const uint32_t WIDTH = 800, HEIGHT = 600;
 
     std::unique_ptr<Vulkan> vulkan;
+    bool windowResized = false;
 
 public:
     App(){
@@ -47,15 +48,25 @@ private:
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        glfwSetWindowUserPointer(window, this);
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
 
-    
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+        auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        app->windowResized = true;
+    }
 
     void mainLoop(){
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            if(windowResized){
+                vulkan->windowResized(window);
+                windowResized = false;
+            }
 
             vulkan->drawFrame();
 
