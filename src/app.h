@@ -83,3 +83,11 @@ private:
 };
 
 }
+
+/*
+TODO
+
+ - Image allocation with vma
+ 
+
+*/

@@ -13,9 +13,12 @@ private:
 
     std::vector<float> vertexData;
     std::map<std::string, VkVertexInputAttributeDescription> attributeDescriptions;
+    std::vector<uint32_t> indexData;
 
     uint32_t attributeCount = 0;
     uint32_t attributeStride = 0;
+
+    uint32_t vertexCount = 0;
 
 public:
     VulkanVertexData(std::initializer_list<std::tuple<std::string, VkFormat, size_t>> attributes){
@@ -75,6 +78,43 @@ public:
         }
 
         vertexData.insert(vertexData.end(), val.begin(), val.end());
+        vertexCount += 1;
+    }
+
+    void append(std::initializer_list<std::initializer_list<float>> values){
+        
+        for(auto val : values){
+            if(sizeof(float) * val.size() != attributeStride){
+                throw std::exception("Mismatch sizes of attribute and argument");
+            }
+    
+            vertexData.insert(vertexData.end(), val.begin(), val.end());
+            vertexCount += 1;
+        }
+    }
+
+    uint32_t getVertexCount(){
+        return vertexCount;
+    }
+
+    void addIndices(std::initializer_list<uint32_t> indices){
+        indexData.insert(indexData.end(), indices.begin(), indices.end());
+    }
+
+    bool hasIndices(){
+        return indexData.size() > 0;
+    }
+
+    size_t getIndicesSize(){
+        return indexData.size() * sizeof(uint32_t); 
+    }
+
+    uint32_t getIndicesCount(){
+        return indexData.size(); 
+    }
+
+    uint32_t* getIndicesData(){
+        return indexData.data();
     }
 
 };

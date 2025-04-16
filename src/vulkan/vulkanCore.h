@@ -43,6 +43,7 @@ private:
     std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline;
     std::shared_ptr<VulkanMemoryManager> memory;
     std::shared_ptr<VulkanVertexBuffer> vertexBuffer;
+    std::shared_ptr<VulkanIndexBuffer> indexBuffer;
 
     std::vector<std::shared_ptr<VulkanCommandBuffer>> commandBuffers;
 
@@ -58,9 +59,14 @@ public:
 
         VulkanVertexData tak({{"pos", VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
 
-        tak.append({0.0f, -0.7f, 1.0f, 1.0f, 0.0f});
-        tak.append({0.5f, 0.5f, 0.0f, 1.0f, 0.0f});
-        tak.append({-0.5f, 0.5f, 0.0f, 0.0f, 1.0f});
+        tak.append({
+            {-0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
+            {0.5f, -0.5f, 0.0f, 1.0f, 0.0f},
+            {0.5f, 0.5f, 0.0f, 0.0f, 1.0f},
+            {-0.5f, 0.5f, 1.0f, 1.0f, 1.0f}
+        });
+
+        tak.addIndices({0, 1, 2, 2, 3, 0});
 
         instance = std::shared_ptr<VulkanInstance>(new VulkanInstance(instanceExtensions, deviceExtensions, enableValidationLayers, validationLayers));
         surface = instance->createSurface(window);
@@ -73,6 +79,7 @@ public:
 
         memory = device->createMemoryManager();
         vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memory, tak));
+        indexBuffer = std::shared_ptr<VulkanIndexBuffer>(new VulkanIndexBuffer(memory, tak));
 
         imageAvailableSemaphores = {device->createSemaphore(), device->createSemaphore()};
         renderFinishedSemaphores = {device->createSemaphore(), device->createSemaphore()};
@@ -102,12 +109,12 @@ public:
         }
 
         auto frameBuffer = swapChain->getFramebuffer(graphicsPipeline, imageId);
-        commandBuffers[frameIndex]->beginRenderPass(*frameBuffer);
-        graphicsPipeline->bind(*commandBuffers[frameIndex]); // TODO swap method dependency
-        commandBuffers[frameIndex]->bind(*vertexBuffer);
-        commandBuffers[frameIndex]->draw();
-        commandBuffers[frameIndex]->endRenderPass();
-        commandBuffers[frameIndex]->submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
+        commandBuffers[frameIndex]->beginRenderPass(*frameBuffer)
+        .bind(*graphicsPipeline)
+        .bind(*vertexBuffer)
+        .bind(*indexBuffer)
+        .draw(vertexBuffer->getVertexCount(), indexBuffer->getIndexCount())
+        .submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
 
         swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);
         inFlightFences[frameIndex]->waitFor();

@@ -105,18 +105,13 @@ public:
         return renderPass;
     }
 
-    void bind(VkCommandBuffer commandBuffer){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-        ViewportStateInfo viewport = ViewportStateInfo(*swapChain);
-
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport.viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &viewport.scissor);
-
-        
+    VulkanSwapChainI& getSwapChain(){
+        return *swapChain;
     }
 
-private:
+    operator VkPipeline() const{
+        return graphicsPipeline;
+    }
 
     struct ViewportStateInfo{
         VkViewport viewport{};
@@ -143,6 +138,8 @@ private:
             viewportState.pScissors = &scissor;
         }
     };
+
+private:
 
     struct DynamicStateInfo{
         std::vector<VkDynamicState> dynamicStates = {

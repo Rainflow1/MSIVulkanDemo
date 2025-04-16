@@ -122,15 +122,19 @@ public:
     }
 
     ~VulkanStagingBuffer(){}
+
+    void bind(VulkanCommandBuffer& commandBuffer) const{
+        return;
+    }
 };
 
 
 class VulkanVertexBuffer : public VulkanBuffer{
 private:
-
+    uint32_t vertexCount;
     
 public:
-    VulkanVertexBuffer(std::shared_ptr<VulkanMemoryManager> allocator, VulkanVertexData& vertices): VulkanBuffer(allocator, vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT){
+    VulkanVertexBuffer(std::shared_ptr<VulkanMemoryManager> allocator, VulkanVertexData& vertices): VulkanBuffer(allocator, vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT), vertexCount(vertices.getVertexCount()){
 
         VulkanStagingBuffer<float> stagingBuffer(allocator, vertices.data(), vertices.size());
         copyBuffer(stagingBuffer, *this, this->getSize());
@@ -139,6 +143,47 @@ public:
 
     ~VulkanVertexBuffer(){}
 
+    void bind(VulkanCommandBuffer& commandBuffer) const{
+        VkBuffer vertexBuffers[] = {buffer};
+        VkDeviceSize offsets[] = {0};
+
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    }
+
+    uint32_t getVertexCount(){
+        return vertexCount;
+    }
+
 };
+
+class VulkanIndexBuffer : public VulkanBuffer{
+private:
+    uint32_t indexCount;
+    
+public:
+    VulkanIndexBuffer(std::shared_ptr<VulkanMemoryManager> allocator, VulkanVertexData& vertices): VulkanBuffer(allocator, vertices.getIndicesSize(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT), indexCount(vertices.getIndicesCount()){
+
+        if(!vertices.hasIndices()){
+            throw std::runtime_error("Vertices had to have indices");
+        }
+
+        VulkanStagingBuffer<uint32_t> stagingBuffer(allocator, vertices.getIndicesData(), vertices.getIndicesSize());
+        copyBuffer(stagingBuffer, *this, this->getSize());
+
+    }
+
+    ~VulkanIndexBuffer(){}
+
+    void bind(VulkanCommandBuffer& commandBuffer) const{
+        vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    uint32_t getIndexCount(){
+        return indexCount;
+    }
+
+};
+
+
 
 }

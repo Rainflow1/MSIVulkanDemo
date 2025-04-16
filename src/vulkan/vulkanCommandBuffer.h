@@ -69,12 +69,20 @@ public:
     }
 };
 
+enum CommandBufferState{
+    default,
+    begin,
+    beginRenderPass,
+    ended
+};
+
 class VulkanCommandBuffer : public VulkanComponent<VulkanCommandBuffer>{
 private:
     std::shared_ptr<VulkanCommandPool> commandPool;
 
     VkCommandBuffer commandBuffer = nullptr;
 
+    CommandBufferState state = default;
 
 public:
     VulkanCommandBuffer(std::shared_ptr<VulkanCommandPool> commandPool): commandPool(commandPool){
@@ -98,11 +106,20 @@ public:
         return commandBuffer;
     }
 
-    void reset(){
+    VulkanCommandBuffer& reset(){
         vkResetCommandBuffer(commandBuffer, 0);
+
+        state = CommandBufferState::default;
+
+        return *this;
     }
 
-    void begin(VkCommandBufferUsageFlags flags = 0){
+    VulkanCommandBuffer& begin(VkCommandBufferUsageFlags flags = 0){
+
+        if(state != CommandBufferState::default){
+            reset();
+        }
+
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = flags;
@@ -111,9 +128,18 @@ public:
         if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+
+        state = CommandBufferState::begin;
+
+        return *this;
     }
 
-    void beginRenderPass(VulkanFramebuffer& framebuffer, VkCommandBufferUsageFlags flags = 0){
+    VulkanCommandBuffer& beginRenderPass(VulkanFramebuffer& framebuffer, VkCommandBufferUsageFlags flags = 0){
+        
+        if(state != CommandBufferState::default){
+            reset();
+        }
+        
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = flags;
@@ -124,41 +150,97 @@ public:
         }
 
         framebuffer.beginRenderPass(commandBuffer);
+
+        state = CommandBufferState::beginRenderPass;
+
+        return *this;
     }
 
-    void bind(VulkanBufferI& buffer){ // TODO bind vertexbuffer
-        VkBuffer vertexBuffers[] = {buffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    VulkanCommandBuffer& bind(VulkanBufferI& buffer){ // TODO bind vertexbuffer
+
+        buffer.bind(*this);
+
+        return *this;
     }
 
-    void draw(){
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    VulkanCommandBuffer& bind(VulkanGraphicsPipeline& graphicsPipeline){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        VulkanGraphicsPipeline::ViewportStateInfo viewport(graphicsPipeline.getSwapChain());
+
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport.viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &viewport.scissor);
+
+        return *this;
     }
 
-    void copyBuffer(VulkanBufferI& src, VulkanBufferI& dst, VkDeviceSize size){
+    VulkanCommandBuffer& draw(uint32_t vertexCount, uint32_t indexCount = 0){
+
+        if(indexCount > 0){
+            vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+
+            return *this;
+        }
+
+        vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+
+        return *this;
+    }
+
+    VulkanCommandBuffer& copyBuffer(VulkanBufferI& src, VulkanBufferI& dst, VkDeviceSize size){
         VkBufferCopy copyRegion = {};
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
         copyRegion.size = size;
         vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copyRegion);
+
+        return *this;
     }
 
-    void end(){
+    VulkanCommandBuffer& end(){
+
+        if(state != CommandBufferState::begin){
+            throw std::runtime_error("Command buffer wrong state: trying to end before begin");
+        }
+
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
+
+        state = CommandBufferState::ended;
+
+        return *this;
     }
 
-    void endRenderPass(){
+    VulkanCommandBuffer& endRenderPass(){
+
+        if(state != CommandBufferState::beginRenderPass){
+            throw std::runtime_error("Command buffer wrong state: trying to end renderpass before begin renderpass");
+        }
+
         vkCmdEndRenderPass(commandBuffer);
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
+
+        state = CommandBufferState::ended;
+
+        return *this;
     }
 
-    void submit(VulkanSemaphore& waitSemaphore, VulkanSemaphore& signalSemaphore, VulkanFence& fence){
+    VulkanCommandBuffer& submit(VulkanSemaphore& waitSemaphore, VulkanSemaphore& signalSemaphore, VulkanFence& fence){
+        
+        if(state != CommandBufferState::ended){
+            if(state == CommandBufferState::beginRenderPass){ // TODO switch next time
+                endRenderPass();
+            }else if(state == CommandBufferState::begin){
+                end();
+            }else{
+                throw std::runtime_error("Command buffer wrong state: trying submit without begin");
+            }
+        }
+        
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
@@ -177,9 +259,24 @@ public:
         if (vkQueueSubmit(commandPool->getDevice()->getGraphicsQueue(), 1, &submitInfo, fence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
+
+        state = CommandBufferState::default;
+
+        return *this;
     }
 
-    void submit(){
+    VulkanCommandBuffer& submit(){
+
+        if(state != CommandBufferState::ended){
+            if(state == CommandBufferState::beginRenderPass){ // TODO switch next time
+                endRenderPass();
+            }else if(state == CommandBufferState::begin){
+                end();
+            }else{
+                throw std::runtime_error("Command buffer wrong state: trying submit without begin");
+            }
+        }
+
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
@@ -189,6 +286,10 @@ public:
             throw std::runtime_error("failed to submit draw command buffer!");
         }
         vkQueueWaitIdle(commandPool->getDevice()->getGraphicsQueue()); // TODO add optional bool
+
+        state = CommandBufferState::default;
+
+        return *this;
     }
 
 private:
