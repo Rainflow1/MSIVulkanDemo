@@ -8,6 +8,8 @@
 #include "vulkanSwapChain.h"
 #include "vulkanFramebuffer.h"
 #include "vulkanGraphicsPipeline.h"
+#include "vulkanMemory.h"
+#include "vulkanVertexData.h"
 
 #include <iostream>
 #include <fstream>
@@ -25,8 +27,13 @@ private:
         "VK_LAYER_KHRONOS_validation"
     };
 
+    const std::vector<const char*> instanceExtensions = {
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+    };
+
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
     };
 
     std::shared_ptr<VulkanSurface> surface;
@@ -34,6 +41,8 @@ private:
     std::shared_ptr<VulkanDevice> device;
     std::shared_ptr<VulkanSwapChain> swapChain;
     std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline;
+    std::shared_ptr<VulkanMemoryManager> memory;
+    std::shared_ptr<VulkanVertexBuffer> vertexBuffer;
 
     std::vector<std::shared_ptr<VulkanCommandBuffer>> commandBuffers;
 
@@ -46,18 +55,29 @@ private:
 
 public:
     Vulkan(GLFWwindow* window){
-        instance = std::shared_ptr<VulkanInstance>(new VulkanInstance(deviceExtensions, enableValidationLayers, validationLayers));
+
+        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
+
+        tak.append({0.0f, -0.7f, 1.0f, 1.0f, 0.0f});
+        tak.append({0.5f, 0.5f, 0.0f, 1.0f, 0.0f});
+        tak.append({-0.5f, 0.5f, 0.0f, 0.0f, 1.0f});
+
+        instance = std::shared_ptr<VulkanInstance>(new VulkanInstance(instanceExtensions, deviceExtensions, enableValidationLayers, validationLayers));
         surface = instance->createSurface(window);
         physicalDevice = instance->createPhysicalDevice(surface);
         device = physicalDevice->createLogicDevice();
         swapChain = device->createSwapChain();
-        graphicsPipeline = swapChain->createGraphicsPipeline();
-        
+        graphicsPipeline = swapChain->createGraphicsPipeline(tak);
+
         commandBuffers = {device->createCommandBuffer(), device->createCommandBuffer()};
+
+        memory = device->createMemoryManager();
+        vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memory, tak));
 
         imageAvailableSemaphores = {device->createSemaphore(), device->createSemaphore()};
         renderFinishedSemaphores = {device->createSemaphore(), device->createSemaphore()};
         inFlightFences = {device->createFence(true), device->createFence(true)};
+
     }
 
     ~Vulkan(){
@@ -82,10 +102,11 @@ public:
         }
 
         auto frameBuffer = swapChain->getFramebuffer(graphicsPipeline, imageId);
-        commandBuffers[frameIndex]->begin(*frameBuffer);
-        graphicsPipeline->bind(*commandBuffers[frameIndex]);
+        commandBuffers[frameIndex]->beginRenderPass(*frameBuffer);
+        graphicsPipeline->bind(*commandBuffers[frameIndex]); // TODO swap method dependency
+        commandBuffers[frameIndex]->bind(*vertexBuffer);
         commandBuffers[frameIndex]->draw();
-        commandBuffers[frameIndex]->end();
+        commandBuffers[frameIndex]->endRenderPass();
         commandBuffers[frameIndex]->submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
 
         swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);

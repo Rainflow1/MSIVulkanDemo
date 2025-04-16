@@ -10,7 +10,8 @@
         "vulkan-binding"
       ]
     },
+    "shaderc",
     "vulkan",
-    "shaderc"
+    "vulkan-memory-allocator"
   ]
 }

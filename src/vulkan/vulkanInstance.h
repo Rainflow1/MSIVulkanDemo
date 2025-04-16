@@ -27,7 +27,7 @@ private:
     const std::vector<const char*> deviceExtensions;
 
 public:
-    VulkanInstance(const std::vector<const char*> deviceExtensions, bool enableValidationLayers, const std::vector<const char*> validationLayers): deviceExtensions(deviceExtensions), enableValidationLayers(enableValidationLayers){
+    VulkanInstance(const std::vector<const char*> instanceExtensions, const std::vector<const char*> deviceExtensions, bool enableValidationLayers, const std::vector<const char*> validationLayers): deviceExtensions(deviceExtensions), enableValidationLayers(enableValidationLayers){
 
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -42,6 +42,7 @@ public:
         createInfo.pApplicationInfo = &appInfo;
 
         auto extensions = getRequiredExtensions();
+        extensions.insert(extensions.end(), instanceExtensions.begin(), instanceExtensions.end());
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
         

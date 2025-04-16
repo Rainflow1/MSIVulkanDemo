@@ -72,6 +72,10 @@ public:
         return *surface;
     }
 
+    VulkanInstance& getInstance(){
+        return *instance;
+    }
+
     VkPhysicalDevice getPhysicalDevice(){
         return physicalDevice;
     }

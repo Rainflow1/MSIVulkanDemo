@@ -80,9 +80,9 @@ public:
         return imageIndex;
     }
 
-    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(){
+    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(VulkanVertexData& vertices){
         if(graphicsPipeline.expired()){
-            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this());
+            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), vertices);
             graphicsPipeline = gp;
             return gp;
         }else{

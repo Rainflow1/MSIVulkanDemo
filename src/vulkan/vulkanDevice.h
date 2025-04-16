@@ -9,6 +9,7 @@
 #include "vulkanCommandBuffer.h"
 #include "vulkanSync.h"
 #include "vulkanComponent.h"
+#include "vulkanMemory.h"
 
 #include <iostream>
 #include <set>
@@ -29,6 +30,7 @@ private:
 
     std::weak_ptr<VulkanSwapChain> swapChain;
     std::weak_ptr<VulkanCommandPool> commandPool;
+    std::weak_ptr<VulkanMemoryManager> memoryManager;
     std::vector<std::weak_ptr<VulkanSemaphore>> semaphores;
     std::vector<std::weak_ptr<VulkanFence>> fences;
 
@@ -94,6 +96,10 @@ public:
         return *physicalDevice;
     }
 
+    std::weak_ptr<VulkanCommandPool> getCommandPool(){
+        return commandPool;
+    }
+
     VkQueue getGraphicsQueue(){
         return graphicsQueue;
     }
@@ -113,6 +119,16 @@ public:
             return cp->getCommandBuffer();
         }else{
             return commandPool.lock()->getCommandBuffer();
+        }
+    }
+
+    std::shared_ptr<VulkanMemoryManager> createMemoryManager(){
+        if(memoryManager.expired()){
+            auto mm = std::make_shared<VulkanMemoryManager>(shared_from_this());
+            memoryManager = mm;
+            return mm;
+        }else{
+            return memoryManager.lock();
         }
     }
 

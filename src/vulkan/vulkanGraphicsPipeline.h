@@ -6,6 +6,7 @@
 #include "interface/vulkanDeviceI.h"
 #include "interface/vulkanSwapChainI.h"
 #include "vulkanShader.h"
+#include "vulkanVertexData.h"
 
 #include <iostream>
 #include <fstream>
@@ -23,7 +24,7 @@ private:
     VkPipeline graphicsPipeline = nullptr;
 
 public:
-    VulkanGraphicsPipeline(std::shared_ptr<VulkanSwapChainI> swapChain): swapChain(swapChain){
+    VulkanGraphicsPipeline(std::shared_ptr<VulkanSwapChainI> swapChain, VulkanVertexData& vertices): swapChain(swapChain){
 
         VulkanShader vertShader(swapChain->getDevice(), "./shaders/tak.glsl", Vertex);
         VulkanShader fragShader(swapChain->getDevice(), "./shaders/tak.glsl", Fragment);
@@ -48,7 +49,7 @@ public:
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
 
-        VertexInputStateInfo vertexInputInfo = VertexInputStateInfo();
+        VertexInputStateInfo vertexInputInfo = VertexInputStateInfo(vertices);
         pipelineInfo.pVertexInputState = &vertexInputInfo.vertexInputInfo;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = getInputAssemblyInfo();
@@ -161,13 +162,17 @@ private:
 
     struct VertexInputStateInfo{
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        VkVertexInputBindingDescription bindingDescription;
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 
-        VertexInputStateInfo(){
+        VertexInputStateInfo(VulkanVertexData& vertices){
             vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-            vertexInputInfo.vertexBindingDescriptionCount = 0;
-            vertexInputInfo.pVertexBindingDescriptions = nullptr; 
-            vertexInputInfo.vertexAttributeDescriptionCount = 0;
-            vertexInputInfo.pVertexAttributeDescriptions = nullptr; 
+            vertexInputInfo.vertexBindingDescriptionCount = 1;
+            bindingDescription = vertices.getBindingDescription();
+            vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+            vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertices.getAttributeDescriptions().size());
+            attributeDescriptions = vertices.getAttributeDescriptions();
+            vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
         }
     };
 

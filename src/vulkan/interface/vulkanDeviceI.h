@@ -2,6 +2,8 @@
 
 namespace MSIVulkanDemo{
 
+class VulkanCommandBuffer;
+
 class VulkanDeviceI{
 public:
     virtual ~VulkanDeviceI(){};
@@ -10,6 +12,7 @@ public:
     virtual VkDevice getDevice() = 0;
     virtual VkQueue getGraphicsQueue() = 0;
     virtual VkQueue getPresentQueue() = 0;
+    virtual std::shared_ptr<VulkanCommandBuffer> createCommandBuffer() = 0;
 };
 
 };
