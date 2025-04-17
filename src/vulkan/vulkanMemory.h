@@ -11,12 +11,14 @@
 #include <iostream>
 #include <vector>
 #include <cstdint>
+#include <type_traits>
 
 #include "interface/vulkanDeviceI.h"
 #include "interface/vulkanBufferI.h"
 #include "vulkanComponent.h"
 #include "vulkanCommandBuffer.h"
 #include "vulkanVertexData.h"
+#include "vulkanUniform.h"
 
 namespace MSIVulkanDemo{
 
@@ -51,8 +53,15 @@ public:
         return allocator;
     }
 
-    VulkanDeviceI& getDevice(){
-        return *device;
+    std::shared_ptr<VulkanDeviceI> getDevice(){
+        return device;
+    }
+
+    template<typename T, typename ...Args>
+    typename std::enable_if<std::is_base_of<VulkanBufferI, T>::value, std::shared_ptr<T>>::type
+    createBuffer(Args&... args){
+
+        return std::make_shared<T>(shared_from_this(), args...);
     }
 
 };
@@ -64,6 +73,7 @@ protected:
     VkBuffer buffer = nullptr;  
     VmaAllocation allocation = nullptr;
     VkDeviceSize size = 0;
+    VmaAllocationInfo allocationInfo = {};
 
 public:
     VulkanBuffer(std::shared_ptr<VulkanMemoryManager> allocator, VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags property): allocator(allocator), size(size){
@@ -78,7 +88,7 @@ public:
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
         allocInfo.flags = property;
         
-        if (vmaCreateBuffer(*allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
+        if (vmaCreateBuffer(*allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &allocationInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to create Buffer!");
         }
     }
@@ -99,7 +109,7 @@ public:
 
     void copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size){
         
-        std::shared_ptr<VulkanCommandBuffer> commandBuffer = allocator->getDevice().createCommandBuffer();
+        std::shared_ptr<VulkanCommandBuffer> commandBuffer = allocator->getDevice()->createCommandBuffer();
 
         commandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // TODO make beggin end into class "CommandBufferRecording"
 
@@ -123,7 +133,7 @@ public:
 
     ~VulkanStagingBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer) const{
+    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
         return;
     }
 };
@@ -143,7 +153,7 @@ public:
 
     ~VulkanVertexBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer) const{
+    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
         VkBuffer vertexBuffers[] = {buffer};
         VkDeviceSize offsets[] = {0};
 
@@ -174,7 +184,7 @@ public:
 
     ~VulkanIndexBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer) const{
+    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
         vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
@@ -183,6 +193,49 @@ public:
     }
 
 };
+
+
+
+class VulkanUniformBuffer : public VulkanBuffer{
+    private:
+        std::shared_ptr<VulkanDescriptorSet> uniformSet = nullptr;
+        VulkanUniformData uniformData;
+        
+    public:
+        VulkanUniformBuffer(std::shared_ptr<VulkanMemoryManager> allocator, std::shared_ptr<VulkanDescriptorPool> descriptorPool, VulkanUniformData& uniformData): VulkanBuffer(allocator, uniformData.getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT), uniformData(uniformData){
+    
+            uniformSet = descriptorPool->getDescriptorSet(uniformData, *this);
+    
+        }
+    
+        ~VulkanUniformBuffer(){}
+    
+        void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
+
+            VkDescriptorSet sets[] = {*uniformSet};
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline, 0, 1, sets, 0, nullptr);
+
+            //throw std::runtime_error("Bind uniform buffer by binding descriptor set");
+        }
+    
+        template<typename T>
+        void uploadData(uint32_t n, T& val){ // TODO initializer list etc
+            
+            VkMemoryPropertyFlags memPropFlags;
+            vmaGetAllocationMemoryProperties(*allocator, allocation, &memPropFlags);
+
+            if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT){
+
+                vmaCopyMemoryToAllocation(*allocator, static_cast<void*>(&val), allocation, uniformData.getOffset(n), size);
+            
+            }else{
+                throw std::runtime_error("Nieeeee");
+            }
+
+        }
+    
+    };
 
 
 

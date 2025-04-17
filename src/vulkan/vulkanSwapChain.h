@@ -8,6 +8,7 @@
 #include "vulkanFramebuffer.h"
 #include "vulkanGraphicsPipeline.h"
 #include "vulkanSync.h"
+#include "vulkanUniform.h"
 
 #include <iostream>
 #include <vector>
@@ -80,9 +81,10 @@ public:
         return imageIndex;
     }
 
-    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(VulkanVertexData& vertices){
+    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(VulkanVertexData& vertices, VulkanUniformData& uniforms){
         if(graphicsPipeline.expired()){
-            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), vertices);
+            std::vector<std::shared_ptr<VulkanUniformLayout>> layouts = {uniforms.getUniformLayout(device)};
+            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), vertices, layouts);
             graphicsPipeline = gp;
             return gp;
         }else{
@@ -130,11 +132,10 @@ public:
         }
 
         vkDestroySwapchainKHR(*device, oldSwapChain, nullptr);
+    }
 
-        // TODO add mechanism to recreate framebuffers and return
-        // create new swapchain
-        // delete old image view and old framebuffers with them
-        // delete old swapchain
+    std::vector<VkImage>& getSwapChainImages(){
+        return swapChainImages;
     }
 
 private:
@@ -197,6 +198,7 @@ private:
         for(auto swapChainImage : swapChainImages){
             imageViews.push_back(new VulkanImageView(*this, swapChainImage));// TODO
         }
+
     }
 
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {

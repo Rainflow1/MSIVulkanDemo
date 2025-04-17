@@ -110,7 +110,7 @@ public:
     }
 
     uint32_t getIndicesCount(){
-        return indexData.size(); 
+        return static_cast<uint32_t>(indexData.size()); 
     }
 
     uint32_t* getIndicesData(){

@@ -8,6 +8,7 @@
 #include "interface/vulkanBufferI.h"
 #include "vulkanPhysicalDevice.h"
 #include "vulkanFramebuffer.h"
+#include "vulkanGraphicsPipeline.h"
 
 #include <iostream>
 #include <vector>
@@ -84,6 +85,8 @@ private:
 
     CommandBufferState state = default;
 
+    std::shared_ptr<VulkanGraphicsPipeline> bindedGraphicsPipeline = nullptr;
+
 public:
     VulkanCommandBuffer(std::shared_ptr<VulkanCommandPool> commandPool): commandPool(commandPool){
         VkCommandBufferAllocateInfo allocInfo{};
@@ -110,6 +113,8 @@ public:
         vkResetCommandBuffer(commandBuffer, 0);
 
         state = CommandBufferState::default;
+
+        bindedGraphicsPipeline.reset(); // TODO maybe add to end and submit too
 
         return *this;
     }
@@ -158,18 +163,36 @@ public:
 
     VulkanCommandBuffer& bind(VulkanBufferI& buffer){ // TODO bind vertexbuffer
 
-        buffer.bind(*this);
+        buffer.bind(*this, bindedGraphicsPipeline);
 
         return *this;
     }
 
-    VulkanCommandBuffer& bind(VulkanGraphicsPipeline& graphicsPipeline){
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+    VulkanCommandBuffer& bind(std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline){
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
 
-        VulkanGraphicsPipeline::ViewportStateInfo viewport(graphicsPipeline.getSwapChain());
+        VulkanGraphicsPipeline::ViewportStateInfo viewport(graphicsPipeline->getSwapChain());
 
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport.viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &viewport.scissor);
+
+        bindedGraphicsPipeline = graphicsPipeline;
+
+        return *this;
+    }
+
+    template<typename t>
+    VulkanCommandBuffer& uniform(t val){
+
+        if(!bindedGraphicsPipeline){
+            throw std::runtime_error("Need to bind graphics pipeline first");
+        }
+
+        std::vector<VkDescriptorSet> sets;
+
+        sets
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *bindedGraphicsPipeline, 0, sets.size(), sets.data(), 0, nullptr);
 
         return *this;
     }

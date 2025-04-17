@@ -11,9 +11,14 @@
 #include "vulkanMemory.h"
 #include "vulkanVertexData.h"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
+
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <chrono>
 
 namespace MSIVulkanDemo{
     
@@ -44,6 +49,9 @@ private:
     std::shared_ptr<VulkanMemoryManager> memory;
     std::shared_ptr<VulkanVertexBuffer> vertexBuffer;
     std::shared_ptr<VulkanIndexBuffer> indexBuffer;
+    std::shared_ptr<VulkanDescriptorPool> descriptorPool;
+
+    std::vector<std::shared_ptr<VulkanUniformBuffer>> uniformBuffers;
 
     std::vector<std::shared_ptr<VulkanCommandBuffer>> commandBuffers;
 
@@ -68,18 +76,23 @@ public:
 
         tak.addIndices({0, 1, 2, 2, 3, 0});
 
+        VulkanUniformData nie({{"model", sizeof(glm::mat4)}, {"view", sizeof(glm::mat4)}, {"proj", sizeof(glm::mat4)}});
+
         instance = std::shared_ptr<VulkanInstance>(new VulkanInstance(instanceExtensions, deviceExtensions, enableValidationLayers, validationLayers));
         surface = instance->createSurface(window);
         physicalDevice = instance->createPhysicalDevice(surface);
         device = physicalDevice->createLogicDevice();
         swapChain = device->createSwapChain();
-        graphicsPipeline = swapChain->createGraphicsPipeline(tak);
+        graphicsPipeline = swapChain->createGraphicsPipeline(tak, nie);
 
         commandBuffers = {device->createCommandBuffer(), device->createCommandBuffer()};
+        
 
         memory = device->createMemoryManager();
         vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memory, tak));
         indexBuffer = std::shared_ptr<VulkanIndexBuffer>(new VulkanIndexBuffer(memory, tak));
+        descriptorPool = device->createDescriptorPool();
+        uniformBuffers = {memory->createBuffer<VulkanUniformBuffer>(descriptorPool, nie), memory->createBuffer<VulkanUniformBuffer>(descriptorPool, nie)};
 
         imageAvailableSemaphores = {device->createSemaphore(), device->createSemaphore()};
         renderFinishedSemaphores = {device->createSemaphore(), device->createSemaphore()};
@@ -95,7 +108,6 @@ public:
     }
 
     void drawFrame(){
-
         uint32_t frameIndex = currentFrame%MAX_FRAMES_IN_FLIGHT;
 
         inFlightFences[frameIndex]->reset();
@@ -108,11 +120,30 @@ public:
             return;
         }
 
+
+
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+        glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChain->getSwapChainExtent().width / (float) swapChain->getSwapChainExtent().height, 0.1f, 10.0f);
+        proj[1][1] *= -1;
+
+        uniformBuffers[frameIndex]->uploadData(0, model);
+        uniformBuffers[frameIndex]->uploadData(1, view);
+        uniformBuffers[frameIndex]->uploadData(2, proj); 
+
         auto frameBuffer = swapChain->getFramebuffer(graphicsPipeline, imageId);
         commandBuffers[frameIndex]->beginRenderPass(*frameBuffer)
-        .bind(*graphicsPipeline)
+        .bind(graphicsPipeline)
         .bind(*vertexBuffer)
         .bind(*indexBuffer)
+        .bind(*uniformBuffers[frameIndex])
+        //.uniform<glm::mat4>(model) //TODO alternatywnie do uniform buffer
+        //.uniform<glm::mat4>(view)
+        //.uniform<glm::mat4>(proj)
         .draw(vertexBuffer->getVertexCount(), indexBuffer->getIndexCount())
         .submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
 

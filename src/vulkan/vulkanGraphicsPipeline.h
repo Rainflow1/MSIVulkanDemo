@@ -7,6 +7,7 @@
 #include "interface/vulkanSwapChainI.h"
 #include "vulkanShader.h"
 #include "vulkanVertexData.h"
+#include "vulkanUniform.h"
 
 #include <iostream>
 #include <fstream>
@@ -18,13 +19,14 @@ namespace MSIVulkanDemo{
 class VulkanGraphicsPipeline : public VulkanComponent<VulkanGraphicsPipeline>{
 private:
     std::shared_ptr<VulkanSwapChainI> swapChain;
+    std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts;
 
     VkRenderPass renderPass = nullptr;
-    VkPipelineLayout pipelineLayout = nullptr;
     VkPipeline graphicsPipeline = nullptr;
+    VkPipelineLayout pipelineLayout = nullptr;
 
 public:
-    VulkanGraphicsPipeline(std::shared_ptr<VulkanSwapChainI> swapChain, VulkanVertexData& vertices): swapChain(swapChain){
+    VulkanGraphicsPipeline(std::shared_ptr<VulkanSwapChainI> swapChain, VulkanVertexData& vertices, std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts): swapChain(swapChain), uniformLayouts(uniformLayouts){
 
         VulkanShader vertShader(swapChain->getDevice(), "./shaders/tak.glsl", Vertex);
         VulkanShader fragShader(swapChain->getDevice(), "./shaders/tak.glsl", Fragment);
@@ -76,7 +78,8 @@ public:
         pipelineInfo.renderPass = renderPass;
         pipelineInfo.subpass = 0;
 
-        createPipelineLayout();
+        PipelineLayout pipeline = PipelineLayout(*swapChain, uniformLayouts);
+        pipelineLayout = pipeline.pipelineLayout;
         pipelineInfo.layout = pipelineLayout;
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -107,6 +110,10 @@ public:
 
     VulkanSwapChainI& getSwapChain(){
         return *swapChain;
+    }
+
+    operator VkPipelineLayout() const{
+        return pipelineLayout;
     }
 
     operator VkPipeline() const{
@@ -192,7 +199,7 @@ private:
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f; // Optional
         rasterizer.depthBiasClamp = 0.0f; // Optional
@@ -240,21 +247,31 @@ private:
         }
     };
 
-    void createPipelineLayout(){
-        // TODO get uniforms from shader
+    struct PipelineLayout{
+        
+        VkDescriptorSetLayout layout;
+        VkPipelineLayout pipelineLayout = nullptr;
 
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 0; // Optional
-        pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
-        pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-        pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+        PipelineLayout(VulkanSwapChainI& swapChain, std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts){
+            VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+            pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(uniformLayouts.size());
+            
+            std::vector<VkDescriptorSetLayout> layouts;
+            for(auto uniformLayout : uniformLayouts){
+                layouts.push_back(*uniformLayout);
+            }
 
-        if (vkCreatePipelineLayout(*swapChain->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create pipeline layout!");
+            pipelineLayoutInfo.pSetLayouts = layouts.data();
+            
+            pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
+            pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+
+            if (vkCreatePipelineLayout(*swapChain.getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create pipeline layout!");
+            }
         }
-
-    }
+    };
 
     void createRenderPass() {
         VkAttachmentDescription colorAttachment{};

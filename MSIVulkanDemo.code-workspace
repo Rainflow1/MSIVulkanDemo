@@ -80,7 +80,9 @@
 			"unordered_set": "cpp",
 			"cinttypes": "cpp",
 			"condition_variable": "cpp",
-			"shared_mutex": "cpp"
+			"shared_mutex": "cpp",
+			"chrono": "cpp",
+			"forward_list": "cpp"
 		}
 	}
 }

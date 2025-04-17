@@ -10,6 +10,7 @@
 #include "vulkanSync.h"
 #include "vulkanComponent.h"
 #include "vulkanMemory.h"
+#include "vulkanUniform.h"
 
 #include <iostream>
 #include <set>
@@ -31,6 +32,7 @@ private:
     std::weak_ptr<VulkanSwapChain> swapChain;
     std::weak_ptr<VulkanCommandPool> commandPool;
     std::weak_ptr<VulkanMemoryManager> memoryManager;
+    std::weak_ptr<VulkanDescriptorPool> descriptorPool;
     std::vector<std::weak_ptr<VulkanSemaphore>> semaphores;
     std::vector<std::weak_ptr<VulkanFence>> fences;
 
@@ -146,6 +148,16 @@ public:
         fences.push_back(fence);
 
         return fence;
+    }
+
+    std::shared_ptr<VulkanDescriptorPool> createDescriptorPool(){
+        if(descriptorPool.expired()){ // TODO more descriptors pools
+            auto dp = std::make_shared<VulkanDescriptorPool>(shared_from_this());
+            descriptorPool = dp;
+            return dp;
+        }else{
+            return descriptorPool.lock();
+        }
     }
 
     void waitForIdle(){
