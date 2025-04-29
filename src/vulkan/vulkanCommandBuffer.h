@@ -5,7 +5,8 @@
 
 #include "interface/vulkanSwapChainI.h"
 #include "interface/vulkanDeviceI.h"
-#include "interface/vulkanBufferI.h"
+#include "interface/vulkanCommandBufferI.h"
+#include "vulkanMemory.h"
 #include "vulkanPhysicalDevice.h"
 #include "vulkanFramebuffer.h"
 #include "vulkanGraphicsPipeline.h"
@@ -26,6 +27,7 @@ private:
 
     VkCommandPool commandPool = nullptr;
     std::vector<std::weak_ptr<VulkanCommandBuffer>> commandBuffers;
+    
 
 public:
     VulkanCommandPool(std::shared_ptr<VulkanDeviceI> device): device(device){
@@ -40,7 +42,6 @@ public:
         if (vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create command pool!");
         }
-
     }
 
     ~VulkanCommandPool(){
@@ -71,13 +72,13 @@ public:
 };
 
 enum CommandBufferState{
-    default,
+    default, // TODO get state names from documentation
     begin,
     beginRenderPass,
     ended
 };
 
-class VulkanCommandBuffer : public VulkanComponent<VulkanCommandBuffer>{
+class VulkanCommandBuffer : public VulkanComponent<VulkanCommandBuffer>, public VulkanCommandBufferI{
 private:
     std::shared_ptr<VulkanCommandPool> commandPool;
 
@@ -85,7 +86,9 @@ private:
 
     CommandBufferState state = default;
 
+    std::shared_ptr<VulkanFramebuffer> bindedFramebuffer = nullptr;
     std::shared_ptr<VulkanGraphicsPipeline> bindedGraphicsPipeline = nullptr;
+    std::shared_ptr<VulkanUniformBuffer> uniformBuffer;
 
 public:
     VulkanCommandBuffer(std::shared_ptr<VulkanCommandPool> commandPool): commandPool(commandPool){
@@ -99,6 +102,7 @@ public:
             throw std::runtime_error("failed to allocate command buffers!");
         }
 
+        uniformBuffer = commandPool->getDevice()->createMemoryManager()->createBuffer<VulkanUniformBuffer>(commandPool->getDevice()->createDescriptorPool(), 1024 * 1024);
     }
 
     ~VulkanCommandBuffer(){
@@ -114,7 +118,7 @@ public:
 
         state = CommandBufferState::default;
 
-        bindedGraphicsPipeline.reset(); // TODO maybe add to end and submit too
+        bindedGraphicsPipeline.reset();
 
         return *this;
     }
@@ -139,7 +143,7 @@ public:
         return *this;
     }
 
-    VulkanCommandBuffer& beginRenderPass(VulkanFramebuffer& framebuffer, VkCommandBufferUsageFlags flags = 0){
+    VulkanCommandBuffer& beginRenderPass(std::shared_ptr<VulkanFramebuffer> framebuffer, VkCommandBufferUsageFlags flags = 0){
         
         if(state != CommandBufferState::default){
             reset();
@@ -154,16 +158,27 @@ public:
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        framebuffer.beginRenderPass(commandBuffer);
+        framebuffer->beginRenderPass(commandBuffer);
+
+        bindedFramebuffer = framebuffer;
 
         state = CommandBufferState::beginRenderPass;
 
         return *this;
     }
 
-    VulkanCommandBuffer& bind(VulkanBufferI& buffer){ // TODO bind vertexbuffer
+    VulkanCommandBuffer& bind(VulkanBufferI& buffer){
 
-        buffer.bind(*this, bindedGraphicsPipeline);
+        buffer.bind(*this);
+
+        return *this;
+    }
+
+    VulkanCommandBuffer& bind(std::vector<std::shared_ptr<VulkanBufferI>> buffers){
+
+        for(auto buffer : buffers){
+            buffer->bind(*this);
+        }
 
         return *this;
     }
@@ -181,18 +196,35 @@ public:
         return *this;
     }
 
+    VulkanCommandBuffer& bind(std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet){
+
+        uniformBuffer->bindDescriptorSet(*this, bindedGraphicsPipeline, descriptorSet);
+
+        return *this;
+    }
+
+    
+    uint32_t getWidth(){
+        return bindedFramebuffer->getResolution().first;
+    }
+
+    uint32_t getHeight(){
+        return bindedFramebuffer->getResolution().second;
+    }
+
+    std::shared_ptr<VulkanDescriptorSet> createDescriptorSet(VulkanUniformData& uniformData){
+        return uniformBuffer->createDescriptorSet(uniformData);
+    }
+
+
     template<typename t>
-    VulkanCommandBuffer& uniform(t val){
+    VulkanCommandBuffer& setUniform(std::pair<size_t, t> val){
 
         if(!bindedGraphicsPipeline){
             throw std::runtime_error("Need to bind graphics pipeline first");
         }
 
-        std::vector<VkDescriptorSet> sets;
-
-        sets
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *bindedGraphicsPipeline, 0, sets.size(), sets.data(), 0, nullptr);
+        uniformBuffer->uploadData(val.first, val.second);
 
         return *this;
     }
@@ -206,6 +238,19 @@ public:
         }
 
         vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+
+        return *this;
+    }
+
+    VulkanCommandBuffer& draw(std::pair<uint32_t, uint32_t> count){
+
+        if(count.second > 0){
+            vkCmdDrawIndexed(commandBuffer, count.second, 1, 0, 0, 0);
+
+            return *this;
+        }
+
+        vkCmdDraw(commandBuffer, count.first, 1, 0, 0);
 
         return *this;
     }
@@ -242,6 +287,7 @@ public:
         }
 
         vkCmdEndRenderPass(commandBuffer);
+        bindedFramebuffer = nullptr;
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");

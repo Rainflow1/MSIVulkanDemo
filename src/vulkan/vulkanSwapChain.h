@@ -29,7 +29,7 @@ private:
     VkExtent2D swapChainExtent;
 
     std::vector<VulkanImageView*> imageViews;
-    std::weak_ptr<VulkanGraphicsPipeline> graphicsPipeline;
+    std::weak_ptr<VulkanRenderPass> renderPass;
 
 public:
     VulkanSwapChain(std::shared_ptr<VulkanDeviceI> device): device(device){
@@ -60,11 +60,21 @@ public:
         return device;
     }
 
-    std::shared_ptr<VulkanFramebuffer> getFramebuffer(std::weak_ptr<VulkanGraphicsPipeline> pipeline, uint32_t imageId){
+    std::shared_ptr<VulkanRenderPass> createRenderPass(){
+        if(renderPass.expired()){
+            auto rp = std::make_shared<VulkanRenderPass>(shared_from_this());
+            renderPass = rp;
+            return rp;
+        }else{
+            return renderPass.lock();
+        }
+    }
+
+    std::shared_ptr<VulkanFramebuffer> getFramebuffer(uint32_t imageId, std::shared_ptr<VulkanRenderPass> renderPass){
         if(imageId >= imageViews.size()){
             throw std::exception("Image index out of bounds");
         }
-        return imageViews[imageId]->createFramebuffer(shared_from_this(), pipeline.lock()->getRenderPass());
+        return imageViews[imageId]->createFramebuffer(renderPass); // TODO temp solution
     }
 
     uint32_t getNextImage(VulkanSemaphore& semaphore){
@@ -81,16 +91,7 @@ public:
         return imageIndex;
     }
 
-    std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(VulkanVertexData& vertices, VulkanUniformData& uniforms){
-        if(graphicsPipeline.expired()){
-            std::vector<std::shared_ptr<VulkanUniformLayout>> layouts = {uniforms.getUniformLayout(device)};
-            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), vertices, layouts);
-            graphicsPipeline = gp;
-            return gp;
-        }else{
-            return graphicsPipeline.lock();
-        }
-    }
+    
 
     void presentImage(VulkanSemaphore& signalSemaphore, uint32_t imageId){
         VkPresentInfoKHR presentInfo{};

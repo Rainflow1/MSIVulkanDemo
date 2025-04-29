@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "entt",
     "glfw3",
     "glm",
     {
@@ -12,6 +13,7 @@
     },
     "shaderc",
     "vulkan",
-    "vulkan-memory-allocator"
+    "vulkan-memory-allocator",
+    "spirv-reflect"
   ]
 }

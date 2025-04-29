@@ -3,8 +3,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
+#include "spirv_reflect.h"
 
 #include "interface/vulkanDeviceI.h"
+#include "vulkanVertexData.h"
+#include "vulkanUniform.h"
 
 #include <iostream>
 #include <fstream>
@@ -25,9 +28,12 @@ private:
     inline static shaderc::Compiler* compiler = nullptr;
 
     VkShaderModule shaderModule = nullptr;
+    SpvReflectShaderModule module;
+    std::vector<uint32_t> compiledCode;
+    ShaderType type;
 
 public:
-    VulkanShader(std::shared_ptr<VulkanDeviceI> device, const std::string& filename, ShaderType shaderType): device(device){
+    VulkanShader(std::shared_ptr<VulkanDeviceI> device, const std::string& filename, ShaderType shaderType): device(device), type(shaderType){
 
         if(compiler == nullptr){
             compiler = new shaderc::Compiler(); // Lazy init of dangling global compiler
@@ -37,9 +43,14 @@ public:
         std::string code = readShaderFile(filename);
         std::string preprocesedCode = preprocessGLSL(filename, shaderType, code);
         std::cout << preprocesedCode << std::endl;
-        std::vector<uint32_t> compiledCode = compileGLSL(filename, shaderType, preprocesedCode);
+        compiledCode = compileGLSL(filename, shaderType, preprocesedCode);
+
+        if(spvReflectCreateShaderModule(compiledCode.size() * sizeof(uint32_t), compiledCode.data(), &module) != SPV_REFLECT_RESULT_SUCCESS){
+            throw std::runtime_error("Cannot create reflect module");
+        }
 
         //printCompiledCode(compiledCode);
+        reflectTest(compiledCode);
 
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -56,10 +67,72 @@ public:
         if(shaderModule){
             vkDestroyShaderModule(device->getDevice(), shaderModule, nullptr);
         }
+        spvReflectDestroyShaderModule(&module);
     }
 
     operator VkShaderModule() const{
         return shaderModule;
+    }
+
+    ShaderType getType(){
+        return type;
+    }
+
+    VulkanVertexData getVertexData(){
+        
+        uint32_t var_count = 0;
+        if(spvReflectEnumerateInputVariables(&module, &var_count, NULL) != SPV_REFLECT_RESULT_SUCCESS){
+            throw std::runtime_error("Cannot fetch input var number");
+        }
+
+        SpvReflectInterfaceVariable** input_vars = (SpvReflectInterfaceVariable**)malloc(var_count * sizeof(SpvReflectInterfaceVariable*));
+
+        if(spvReflectEnumerateInputVariables(&module, &var_count, input_vars) != SPV_REFLECT_RESULT_SUCCESS){
+            throw std::runtime_error("Cannot fetch input vars");
+        }
+
+        std::vector<std::tuple<std::string, VkFormat, size_t>> attributes;
+
+        for(uint32_t i = 0; i < var_count; i++){
+            attributes.push_back({std::string(input_vars[i]->name), static_cast<VkFormat>(input_vars[i]->format), input_vars[i]->numeric.scalar.width/8 * input_vars[i]->numeric.vector.component_count /* TODO calculate size also for mats and arrays */});
+        }
+
+        return VulkanVertexData(attributes);
+    }
+
+    VulkanUniformData* getUniformData(){
+
+        uint32_t varCount = 0;
+        if(spvReflectEnumerateDescriptorSets(&module, &varCount, NULL) != SPV_REFLECT_RESULT_SUCCESS){
+            throw std::runtime_error("Cannot fetch input var number");
+        }
+
+        SpvReflectDescriptorSet** inputVars = (SpvReflectDescriptorSet**)malloc(varCount * sizeof(SpvReflectDescriptorSet*));
+
+        if(spvReflectEnumerateDescriptorSets(&module, &varCount, inputVars) != SPV_REFLECT_RESULT_SUCCESS){
+            throw std::runtime_error("Cannot fetch input vars");
+        }
+
+        std::vector<std::vector<std::pair<std::string, size_t>>> attributes;
+
+        for(uint32_t i = 0; i < varCount; i++){
+            // TODO support sets
+            for(uint32_t j = 0; j < inputVars[i]->binding_count; j++){
+                auto binding = inputVars[i]->bindings[j];
+                std::vector<std::pair<std::string, size_t>> blockMembers;
+
+                for(uint32_t k = 0; k < binding->block.member_count; k++){
+                    auto member = binding->block.members[k];
+                    blockMembers.push_back({std::string(member.name), member.size});
+                }
+
+                attributes.push_back(blockMembers);
+            }
+
+            
+        }
+
+        return new VulkanUniformData(attributes);
     }
 
 private:
@@ -160,6 +233,56 @@ private:
         }
         std::cout << std::dec << std::endl;
     }
+
+    void reflectTest(std::vector<uint32_t>& compiledCode){
+        SpvReflectShaderModule module;
+        SpvReflectResult result = spvReflectCreateShaderModule(compiledCode.size() * sizeof(uint32_t), compiledCode.data(), &module);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+      
+        // Enumerate and extract shader's input variables
+        uint32_t var_count = 0;
+        result = spvReflectEnumerateInputVariables(&module, &var_count, NULL);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        SpvReflectInterfaceVariable** input_vars = (SpvReflectInterfaceVariable**)malloc(var_count * sizeof(SpvReflectInterfaceVariable*));
+        result = spvReflectEnumerateInputVariables(&module, &var_count, input_vars);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        for(int i = 0; i < var_count; i++){
+            std::cout << input_vars[i]->name << ": " << input_vars[i]->format << " - " << input_vars[i]->numeric.scalar.width * input_vars[i]->numeric.vector.component_count << std::endl;
+        }
+
+
+        var_count = 0;
+        result = spvReflectEnumerateDescriptorSets(&module, &var_count, NULL);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        SpvReflectDescriptorSet** input_vars2 = (SpvReflectDescriptorSet**)malloc(var_count * sizeof(SpvReflectDescriptorSet*));
+        result = spvReflectEnumerateDescriptorSets(&module, &var_count, input_vars2);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        for(int i = 0; i < var_count; i++){
+            std::cout << "Set " << input_vars2[i]->set << ": " << std::endl;
+            for(int j = 0; j < input_vars2[i]->binding_count; j++){
+                auto binding = input_vars2[i]->bindings[j];
+                std::cout << "Binding: " << binding->binding << ": " << binding->block.member_count << std::endl;
+                for(int k = 0; k < binding->block.member_count; k++){
+                    auto block = binding->block.members[k];
+                    std::cout << block.name << ": " << block.size << std::endl;
+                }
+            }
+        }
+
+      
+        // Output variables, descriptor bindings, descriptor sets, and push constants
+        // can be enumerated and extracted using a similar mechanism.
+      
+        // Destroy the reflection data when no longer required.
+        spvReflectDestroyShaderModule(&module);
+    }
+
+    
+
 };
+
+
 
 }

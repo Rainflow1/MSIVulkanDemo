@@ -40,6 +40,25 @@ public:
 
     }
 
+    VulkanVertexData(std::vector<std::tuple<std::string, VkFormat, size_t>>& attributes){
+
+        for(auto tuple : attributes){
+            VkFormat format = std::get<1>(tuple);
+
+            VkVertexInputAttributeDescription attributeDescription;
+
+            attributeDescription.binding = 0;
+            attributeDescription.location = attributeCount;
+            attributeDescription.format = format;
+            attributeDescription.offset = attributeStride;
+
+            attributeCount += 1;
+            attributeStride += static_cast<uint32_t>(std::get<2>(tuple));
+            attributeDescriptions.insert(std::pair(std::get<0>(tuple), attributeDescription));
+        }
+
+    }
+
     ~VulkanVertexData(){
         
     }

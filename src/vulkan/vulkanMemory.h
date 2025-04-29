@@ -15,8 +15,8 @@
 
 #include "interface/vulkanDeviceI.h"
 #include "interface/vulkanBufferI.h"
+#include "interface/vulkanCommandBufferI.h"
 #include "vulkanComponent.h"
-#include "vulkanCommandBuffer.h"
 #include "vulkanVertexData.h"
 #include "vulkanUniform.h"
 
@@ -59,7 +59,7 @@ public:
 
     template<typename T, typename ...Args>
     typename std::enable_if<std::is_base_of<VulkanBufferI, T>::value, std::shared_ptr<T>>::type
-    createBuffer(Args&... args){
+    createBuffer(Args... args){
 
         return std::make_shared<T>(shared_from_this(), args...);
     }
@@ -109,9 +109,9 @@ public:
 
     void copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size){
         
-        std::shared_ptr<VulkanCommandBuffer> commandBuffer = allocator->getDevice()->createCommandBuffer();
+        std::shared_ptr<VulkanCommandBufferI> commandBuffer = std::dynamic_pointer_cast<VulkanCommandBufferI>(allocator->getDevice()->createCommandBuffer());
 
-        commandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // TODO make beggin end into class "CommandBufferRecording"
+        commandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
         commandBuffer->copyBuffer(srcBuffer, dstBuffer, size);
 
@@ -133,7 +133,7 @@ public:
 
     ~VulkanStagingBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
+    void bind(VulkanCommandBufferI& commandBuffer) const{
         return;
     }
 };
@@ -153,7 +153,7 @@ public:
 
     ~VulkanVertexBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
+    void bind(VulkanCommandBufferI& commandBuffer) const{
         VkBuffer vertexBuffers[] = {buffer};
         VkDeviceSize offsets[] = {0};
 
@@ -184,7 +184,7 @@ public:
 
     ~VulkanIndexBuffer(){}
 
-    void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
+    void bind(VulkanCommandBufferI& commandBuffer) const{
         vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
@@ -198,36 +198,55 @@ public:
 
 class VulkanUniformBuffer : public VulkanBuffer{
     private:
-        std::shared_ptr<VulkanDescriptorSet> uniformSet = nullptr;
-        VulkanUniformData uniformData;
+        std::shared_ptr<VulkanDescriptorPool> descriptorPool;
+
+        std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet;
+        std::shared_ptr<VulkanDescriptorSet> bindedDescriptorSet;
+        size_t bufferSize = 0;
         
     public:
-        VulkanUniformBuffer(std::shared_ptr<VulkanMemoryManager> allocator, std::shared_ptr<VulkanDescriptorPool> descriptorPool, VulkanUniformData& uniformData): VulkanBuffer(allocator, uniformData.getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT), uniformData(uniformData){
-    
-            uniformSet = descriptorPool->getDescriptorSet(uniformData, *this);
-    
+        VulkanUniformBuffer(std::shared_ptr<VulkanMemoryManager> allocator, std::shared_ptr<VulkanDescriptorPool> descriptorPool, size_t size): VulkanBuffer(allocator, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT), descriptorPool(descriptorPool){
+            
         }
     
         ~VulkanUniformBuffer(){}
     
-        void bind(VulkanCommandBuffer& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline) const{
+        void bind(VulkanCommandBufferI& commandBuffer) const{
+            throw std::runtime_error("Bind uniform buffer by binding descriptor set");
+        }
 
-            VkDescriptorSet sets[] = {*uniformSet};
+        void bindDescriptorSet(VulkanCommandBufferI& commandBuffer, std::shared_ptr<VulkanGraphicsPipeline> graphicsPipeline, std::vector<std::shared_ptr<VulkanDescriptorSet>> uniformSet){
+
+            VkDescriptorSet sets[1];
+
+            for(auto uniform : uniformSet){
+                if(std::find(descriptorSet.begin(), descriptorSet.end(), uniform) != descriptorSet.end()){
+                    bindedDescriptorSet = uniform;
+                    sets[0] = {*uniform}; //TODO to map
+                    break;
+                }
+            }
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline, 0, 1, sets, 0, nullptr);
-
-            //throw std::runtime_error("Bind uniform buffer by binding descriptor set");
         }
-    
+
+        std::shared_ptr<VulkanDescriptorSet> createDescriptorSet(VulkanUniformData& uniformData){
+            auto set = descriptorPool->getDescriptorSet(uniformData, *this, bufferSize);
+            descriptorSet.push_back(set);
+            bufferSize += uniformData.getSize();
+
+            return set;
+        }
+
         template<typename T>
-        void uploadData(uint32_t n, T& val){ // TODO initializer list etc
+        void uploadData(size_t offset, T& val){
             
             VkMemoryPropertyFlags memPropFlags;
             vmaGetAllocationMemoryProperties(*allocator, allocation, &memPropFlags);
 
             if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT){
 
-                vmaCopyMemoryToAllocation(*allocator, static_cast<void*>(&val), allocation, uniformData.getOffset(n), size);
+                vmaCopyMemoryToAllocation(*allocator, static_cast<void*>(&val), allocation, bindedDescriptorSet->getOffset() + offset, sizeof(T));
             
             }else{
                 throw std::runtime_error("Nieeeee");

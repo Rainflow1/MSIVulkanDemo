@@ -18,29 +18,40 @@ namespace MSIVulkanDemo{
 
 class VulkanGraphicsPipeline : public VulkanComponent<VulkanGraphicsPipeline>{
 private:
-    std::shared_ptr<VulkanSwapChainI> swapChain;
-    std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts;
+    std::shared_ptr<VulkanRenderPass> renderPass;
+    //std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts;
 
-    VkRenderPass renderPass = nullptr;
     VkPipeline graphicsPipeline = nullptr;
     VkPipelineLayout pipelineLayout = nullptr;
 
-public:
-    VulkanGraphicsPipeline(std::shared_ptr<VulkanSwapChainI> swapChain, VulkanVertexData& vertices, std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts): swapChain(swapChain), uniformLayouts(uniformLayouts){
+    std::unique_ptr<VulkanUniformData> vertexUniforms;
+    std::unique_ptr<VulkanUniformData> fragmentUniforms; 
 
-        VulkanShader vertShader(swapChain->getDevice(), "./shaders/tak.glsl", Vertex);
-        VulkanShader fragShader(swapChain->getDevice(), "./shaders/tak.glsl", Fragment);
+public:
+    VulkanGraphicsPipeline(std::shared_ptr<VulkanRenderPass> renderPass, std::vector<std::shared_ptr<VulkanShader>> shaders): renderPass(renderPass){
+
+        std::shared_ptr<VulkanShader> vertShader;
+        std::shared_ptr<VulkanShader> fragShader;
+
+        for(auto shader : shaders){
+            if(shader->getType() == Vertex){
+                vertShader = shader;
+            }
+            if(shader->getType() == Fragment){
+                fragShader = shader;
+            }
+        }
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vertShaderStageInfo.module = vertShader;
+        vertShaderStageInfo.module = *vertShader;
         vertShaderStageInfo.pName = "main";
 
         VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
         fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        fragShaderStageInfo.module = fragShader;
+        fragShaderStageInfo.module = *fragShader;
         fragShaderStageInfo.pName = "main";
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
@@ -51,13 +62,13 @@ public:
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
 
-        VertexInputStateInfo vertexInputInfo = VertexInputStateInfo(vertices);
+        VertexInputStateInfo vertexInputInfo = VertexInputStateInfo(vertShader->getVertexData());
         pipelineInfo.pVertexInputState = &vertexInputInfo.vertexInputInfo;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = getInputAssemblyInfo();
         pipelineInfo.pInputAssemblyState = &inputAssembly;
 
-        ViewportStateInfo viewportState = ViewportStateInfo(*swapChain);
+        ViewportStateInfo viewportState = ViewportStateInfo(*renderPass->getSwapChain());
         pipelineInfo.pViewportState = &viewportState.viewportState;
 
         VkPipelineRasterizationStateCreateInfo rasterizer = getRasterizerInfo();
@@ -74,42 +85,34 @@ public:
         DynamicStateInfo dynamicState = DynamicStateInfo();
         pipelineInfo.pDynamicState = &dynamicState.dynamicState;
 
-        createRenderPass();
-        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.renderPass = *renderPass;
         pipelineInfo.subpass = 0;
 
-        PipelineLayout pipeline = PipelineLayout(*swapChain, uniformLayouts);
+
+        vertexUniforms.reset(vertShader->getUniformData());
+        fragmentUniforms.reset(fragShader->getUniformData());
+        std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts = {vertexUniforms->getUniformLayout(renderPass->getDevice()), fragmentUniforms->getUniformLayout(renderPass->getDevice())};
+
+        PipelineLayout pipeline = PipelineLayout(*renderPass->getSwapChain(), uniformLayouts);
         pipelineLayout = pipeline.pipelineLayout;
         pipelineInfo.layout = pipelineLayout;
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional
 
-        if (vkCreateGraphicsPipelines(*swapChain->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+        if (vkCreateGraphicsPipelines(*renderPass->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
     }
 
     ~VulkanGraphicsPipeline(){
         if(graphicsPipeline){
-            vkDestroyPipeline(*swapChain->getDevice(), graphicsPipeline, nullptr);
+            vkDestroyPipeline(*renderPass->getDevice(), graphicsPipeline, nullptr);
         }
 
         if(pipelineLayout){
-            vkDestroyPipelineLayout(*swapChain->getDevice(), pipelineLayout, nullptr);
+            vkDestroyPipelineLayout(*renderPass->getDevice(), pipelineLayout, nullptr);
         }
-
-        if(renderPass){
-            vkDestroyRenderPass(*swapChain->getDevice(), renderPass, nullptr);
-        }
-    }
-
-    VkRenderPass getRenderPass(){
-        return renderPass;
-    }
-
-    VulkanSwapChainI& getSwapChain(){
-        return *swapChain;
     }
 
     operator VkPipelineLayout() const{
@@ -118,6 +121,14 @@ public:
 
     operator VkPipeline() const{
         return graphicsPipeline;
+    }
+
+    VulkanUniformData& getUniformData(){
+        return *vertexUniforms; // TODO combine vertex and fragment
+    }
+
+    VulkanSwapChainI& getSwapChain(){
+        return *renderPass->getSwapChain();
     }
 
     struct ViewportStateInfo{
@@ -140,7 +151,7 @@ public:
 
             viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
             viewportState.viewportCount = 1;
-            viewportState.pViewports = &viewport; // TODO można dynamicznie
+            viewportState.pViewports = &viewport;
             viewportState.scissorCount = 1;
             viewportState.pScissors = &scissor;
         }
@@ -273,51 +284,8 @@ private:
         }
     };
 
-    void createRenderPass() {
-        VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = swapChain->getImageFormat();
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        VkAttachmentReference colorAttachmentRef{};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; 
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorAttachmentRef;
-        //TODO other attachments (input, resolve, depth, stencil, preserve)
-
-        VkRenderPassCreateInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = 1;
-        renderPassInfo.pAttachments = &colorAttachment;
-        renderPassInfo.subpassCount = 1;
-        renderPassInfo.pSubpasses = &subpass;
-
-        VkSubpassDependency dependency{};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-        renderPassInfo.dependencyCount = 1;
-        renderPassInfo.pDependencies = &dependency;
-
-        if (vkCreateRenderPass(*swapChain->getDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create render pass!");
-        }
-
-    }
-
 };
+
+
 
 }

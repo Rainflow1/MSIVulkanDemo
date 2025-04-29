@@ -82,7 +82,10 @@
 			"condition_variable": "cpp",
 			"shared_mutex": "cpp",
 			"chrono": "cpp",
-			"forward_list": "cpp"
+			"forward_list": "cpp",
+			"deque": "cpp",
+			"ranges": "cpp",
+			"any": "cpp"
 		}
 	}
 }

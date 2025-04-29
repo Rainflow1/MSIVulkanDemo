@@ -1,3 +1,5 @@
+#pragma once
+
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -17,6 +19,7 @@
 #include <bit>
 
 #include "vulkan/vulkanCore.h"
+#include "scene.h"
 
 namespace MSIVulkanDemo{
 
@@ -31,7 +34,7 @@ private:
 
 public:
     App(){
-        // TODO delete instance where not needed
+
     }
 
     void run(){
@@ -61,6 +64,10 @@ private:
     }
 
     void mainLoop(){
+
+        SimpleScene scene;
+        scene.loadScene(*vulkan);
+
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
@@ -69,7 +76,7 @@ private:
                 windowResized = false;
             }
 
-            vulkan->drawFrame();
+            vulkan->drawFrame(scene);
 
         }
         vulkan->waitIdle();
