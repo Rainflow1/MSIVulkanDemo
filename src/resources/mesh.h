@@ -40,16 +40,24 @@ public:
         memoryManager = std::any_cast<std::shared_ptr<VulkanMemoryManager>>(dependency);
 
 
-        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32_SFLOAT, sizeof(glm::vec2)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
+        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
 
         tak.append({
-            {-0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
-            {0.5f, -0.5f, 0.0f, 1.0f, 0.0f},
-            {0.5f, 0.5f, 0.0f, 0.0f, 1.0f},
-            {-0.5f, 0.5f, 1.0f, 1.0f, 1.0f}
+            {-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f},
+            {0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f},
+            {0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f},
+            {-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f},
+
+            {-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
+            {0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f},
+            {0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f},
+            {-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f}
         });
 
-        tak.addIndices({0, 1, 2, 2, 3, 0});
+        tak.addIndices({
+            0, 1, 2, 2, 3, 0,
+            4, 5, 6, 6, 7, 4
+        });
 
         vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memoryManager, tak));
         indexBuffer = std::shared_ptr<VulkanIndexBuffer>(new VulkanIndexBuffer(memoryManager, tak));

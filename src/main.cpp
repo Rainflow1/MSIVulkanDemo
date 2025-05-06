@@ -2,9 +2,8 @@
 
 int main(){
     
-    MSIVulkanDemo::App app;
-
     try{
+        MSIVulkanDemo::App app;
         app.run();
     }catch(const std::exception& e){
         std::cerr << e.what() << '\n';

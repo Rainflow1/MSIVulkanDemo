@@ -5,16 +5,18 @@
 
 #include "interface/vulkanSwapChainI.h"
 #include "interface/vulkanDeviceI.h"
-#include "vulkanFramebuffer.h"
+#include "vulkanMemory.h"
 #include "vulkanGraphicsPipeline.h"
 #include "vulkanSync.h"
 #include "vulkanUniform.h"
+#include "vulkanRenderPass.h"
 
 #include <iostream>
 #include <vector>
 #include <cstdint> 
 #include <limits> 
-#include <algorithm> 
+#include <algorithm>
+#include <functional> 
 
 namespace MSIVulkanDemo{
 
@@ -28,8 +30,12 @@ private:
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
 
-    std::vector<VulkanImageView*> imageViews;
-    std::weak_ptr<VulkanRenderPass> renderPass;
+    std::vector<std::shared_ptr<VulkanImageView>> imageViews;
+
+    std::vector<std::function<void(VulkanSwapChain&)>> swapChainRecreateCallbacks;
+
+    uint32_t imageCount;
+    uint32_t minImageCount;
 
 public:
     VulkanSwapChain(std::shared_ptr<VulkanDeviceI> device): device(device){
@@ -39,10 +45,6 @@ public:
     }
 
     ~VulkanSwapChain(){
-        for(auto image : imageViews){
-            delete image;
-        }
-
         if(swapChain){
             vkDestroySwapchainKHR(*device, swapChain, nullptr);
         }
@@ -60,22 +62,6 @@ public:
         return device;
     }
 
-    std::shared_ptr<VulkanRenderPass> createRenderPass(){
-        if(renderPass.expired()){
-            auto rp = std::make_shared<VulkanRenderPass>(shared_from_this());
-            renderPass = rp;
-            return rp;
-        }else{
-            return renderPass.lock();
-        }
-    }
-
-    std::shared_ptr<VulkanFramebuffer> getFramebuffer(uint32_t imageId, std::shared_ptr<VulkanRenderPass> renderPass){
-        if(imageId >= imageViews.size()){
-            throw std::exception("Image index out of bounds");
-        }
-        return imageViews[imageId]->createFramebuffer(renderPass); // TODO temp solution
-    }
 
     uint32_t getNextImage(VulkanSemaphore& semaphore){
         uint32_t imageIndex;
@@ -90,7 +76,6 @@ public:
 
         return imageIndex;
     }
-
     
 
     void presentImage(VulkanSemaphore& signalSemaphore, uint32_t imageId){
@@ -119,24 +104,39 @@ public:
         vkDeviceWaitIdle(*device);
 
         VkSwapchainKHR oldSwapChain = swapChain;
-        std::vector<VulkanImageView*> oldImageViews = imageViews;
+        std::vector<std::shared_ptr<VulkanImageView>> oldImageViews = imageViews;
 
         createSwapChain(oldSwapChain);
 
-        for(int i = 0; i < imageViews.size(); i++){
-            if(i < oldImageViews.size())
-                imageViews[i]->recreateFramebuffer(*oldImageViews[i]);
-        }
-
         for(auto image : oldImageViews){
-            delete image;
+            image.reset();
         }
 
         vkDestroySwapchainKHR(*device, oldSwapChain, nullptr);
+
+        for(auto cb : swapChainRecreateCallbacks){
+            cb(*this);
+        }
+    }
+
+    void addSwapChainRecreateCallback(std::function<void(VulkanSwapChainI&)> cb){
+        swapChainRecreateCallbacks.push_back(cb);
     }
 
     std::vector<VkImage>& getSwapChainImages(){
         return swapChainImages;
+    }
+
+    std::vector<std::shared_ptr<VulkanImageView>>& getSwapChainImageViews(){
+        return imageViews;
+    }
+
+    uint32_t getMinImageCount(){
+        return minImageCount;
+    }
+
+    uint32_t getImageCount(){
+        return imageCount;
     }
 
 private:
@@ -150,7 +150,8 @@ private:
 
         swapChainImageFormat = surfaceFormat.format;
 
-        uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+        minImageCount = swapChainSupport.capabilities.minImageCount;
+        imageCount = swapChainSupport.capabilities.minImageCount + 1;
 
         if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
             // TODO log that
@@ -197,7 +198,8 @@ private:
 
         imageViews.clear();
         for(auto swapChainImage : swapChainImages){
-            imageViews.push_back(new VulkanImageView(*this, swapChainImage));// TODO
+            auto tempPtr = std::make_shared<VulkanImage>(device, swapChainImage, getImageFormat());
+            imageViews.push_back(tempPtr->createImageView());
         }
 
     }

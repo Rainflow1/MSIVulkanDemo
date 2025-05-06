@@ -5,6 +5,7 @@
 
 #include "interface/vulkanDeviceI.h"
 #include "interface/vulkanSwapChainI.h"
+#include "interface/vulkanRenderPassI.h"
 #include "vulkanShader.h"
 #include "vulkanVertexData.h"
 #include "vulkanUniform.h"
@@ -16,9 +17,10 @@
 
 namespace MSIVulkanDemo{
 
+
 class VulkanGraphicsPipeline : public VulkanComponent<VulkanGraphicsPipeline>{
 private:
-    std::shared_ptr<VulkanRenderPass> renderPass;
+    std::shared_ptr<VulkanRenderPassI> renderPass;
     //std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts;
 
     VkPipeline graphicsPipeline = nullptr;
@@ -28,7 +30,7 @@ private:
     std::unique_ptr<VulkanUniformData> fragmentUniforms; 
 
 public:
-    VulkanGraphicsPipeline(std::shared_ptr<VulkanRenderPass> renderPass, std::vector<std::shared_ptr<VulkanShader>> shaders): renderPass(renderPass){
+    VulkanGraphicsPipeline(std::shared_ptr<VulkanRenderPassI> renderPass, std::vector<std::shared_ptr<VulkanShader>> shaders): renderPass(renderPass){
 
         std::shared_ptr<VulkanShader> vertShader;
         std::shared_ptr<VulkanShader> fragShader;
@@ -77,7 +79,8 @@ public:
         VkPipelineMultisampleStateCreateInfo multisampling = getMultisamplingInfo();
         pipelineInfo.pMultisampleState = &multisampling;
 
-        pipelineInfo.pDepthStencilState = nullptr; // Optional
+        VkPipelineDepthStencilStateCreateInfo depthStencilInfo = getDepthAndStencilInfo();
+        pipelineInfo.pDepthStencilState = &depthStencilInfo;
 
         ColorBlendStateInfo colorBlending = ColorBlendStateInfo();
         pipelineInfo.pColorBlendState = &colorBlending.colorBlending;
@@ -233,8 +236,20 @@ private:
         return multisampling;
     }
 
-    void getDepthAndStencilTestInfo(){
-        // TODO
+    VkPipelineDepthStencilStateCreateInfo getDepthAndStencilInfo(){
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencil.depthTestEnable = VK_TRUE;
+        depthStencil.depthWriteEnable = VK_TRUE;
+        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.minDepthBounds = 0.0f; // Optional
+        depthStencil.maxDepthBounds = 1.0f; // Optional
+        depthStencil.stencilTestEnable = VK_FALSE;
+        depthStencil.front = {}; // Optional
+        depthStencil.back = {}; // Optional
+
+        return depthStencil;
     }
 
     struct ColorBlendStateInfo{

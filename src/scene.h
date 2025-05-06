@@ -68,11 +68,17 @@ public:
 };
 
 
-class Scene : public VulkanRendererI{
+class Scene : public VulkanRendererI, public VulkanRenderGraphBuilderI{
 
 private:
     std::vector<GameObject> gameObjects;
     std::shared_ptr<entt::registry> entityRegistry;
+    std::shared_ptr<ImGuiInterface> gui;
+
+    std::shared_ptr<VulkanRenderGraph> renderGraph;
+    std::shared_ptr<VulkanRenderPass> mainRenderpass;
+
+    std::chrono::steady_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
 
 protected:
     ResourceManager resourceManager;
@@ -81,6 +87,8 @@ public:
     Scene(){
         entityRegistry = std::shared_ptr<entt::registry>(new entt::registry());
     }
+
+    Scene(Scene& other) = delete;
 
     virtual ~Scene(){
 
@@ -91,13 +99,57 @@ public:
 
     virtual void update() = 0;
 
+    void buildRenderGraph(std::shared_ptr<VulkanRenderGraph> renderGraph){
+        //renderGraph.addRenderPass("test");
+        //renderGraph.addRenderPass("Shadow", 
+        //    VulkanRenderGraph::DepthOnly()
+        //);
+        renderGraph->addRenderPass("Main", 
+            //VulkanRenderGraph::AddInput("Shadow", "ShadowMap"), 
+            VulkanRenderGraph::AddRenderFunction([&](VulkanCommandBuffer& commandBuffer){
+                this->render(commandBuffer);
+            }),
+            VulkanRenderGraph::AddDepthBuffer()
+        );
+
+        if(this->gui){
+
+            renderGraph->addRenderPass("UI", 
+                VulkanRenderGraph::SetRenderTargetInput("Main"), 
+                VulkanRenderGraph::SetRenderTargetOutput(),
+                VulkanRenderGraph::AddRenderFunction([&](VulkanCommandBuffer& commandBuffer){
+                    this->gui->render(commandBuffer);
+                })
+            );
+
+        }
+        
+        renderGraph->bake(); // TODO consider who should bake the graph
+
+        this->renderGraph = renderGraph;
+        mainRenderpass = renderGraph->getRenderPass("Main");
+        gui->initVulkan(renderGraph->getRenderPass("UI"));
+    }
+
     void render(VulkanCommandBuffer& commandBuffer){
 
         static auto startTime = std::chrono::high_resolution_clock::now();
         auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
+        float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
+        static uint32_t frames = 0, totalFrames = 0;
+        static float cumulativeTime = 0.0f;
+        cumulativeTime += deltaTime;
+        frames++;
+        totalFrames++;
         
+        if(cumulativeTime >= 1.0f){
+            cumulativeTime = 0.0f;
+            std::cout << frames << ", " << totalFrames/totalTime << ", " << deltaTime << std::endl;
+            frames = 0;
+        }
+        
+
         glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), commandBuffer.getWidth() / (float) commandBuffer.getHeight(), 0.1f, 10.0f);
         proj[1][1] *= -1;
@@ -106,7 +158,7 @@ public:
 
         for(auto entity : entityView){
             
-            glm::mat4 model = glm::rotate(glm::translate(glm::mat4(1.0f), entityView.get<TransformComponent>(entity).getPosition()), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            glm::mat4 model = glm::rotate(glm::translate(glm::mat4(1.0f), entityView.get<TransformComponent>(entity).getPosition()), totalTime * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
             commandBuffer
             .bind(entityView.get<MaterialComponent>(entity).getGraphicsPipeline())
@@ -119,36 +171,30 @@ public:
 
         }
 
-/*
-        commandBuffer
-        .bind(graphicsPipeline) // TODO foreach material component 
-        .bind(*vertexBuffer) // TODO foreach model component
-        .bind(*indexBuffer) // TODO foreach model component
-        .bind(*uniformBuffers[frameIndex]) // TODO done during pipeline bind
-        .uniform<glm::mat4>(model)
-        .uniform<glm::mat4>(view) // TODO foreach transform component
-        .uniform<glm::mat4>(proj)
-        .draw(vertexBuffer->getVertexCount(), indexBuffer->getIndexCount()); // TODO foreach render component
-*/
+        previousTime = currentTime;
     }
 
     void loadScene(Vulkan& context){
 
         setup();
 
-        std::shared_ptr<VulkanRenderPass> renderpass = context.getRenderPass();
-        resourceManager.addDependency<ShaderProgram>(renderpass);
+        
+        resourceManager.addDependency<ShaderProgram>(mainRenderpass);
         resourceManager.addDependency<Mesh>(context.getMemoryManager());
 
         auto entityView = entityRegistry->view<MaterialComponent>();
 
         for(auto [entity, mat] : entityView.each()){
-            mat.setDescriptorSet(context.registerDescriptorSet(mat.getGraphicsPipeline()->getUniformData()));
+            mat.setDescriptorSet(renderGraph->registerDescriptorSet(mat.getGraphicsPipeline()->getUniformData())); // TODO make that indepented of scene/renderGraph load order
         }
     }
 
     void unloadScene(){
         return;
+    }
+
+    void loadGui(std::shared_ptr<ImGuiInterface> gui){
+        this->gui = gui;
     }
 
 protected:

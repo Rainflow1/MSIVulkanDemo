@@ -11,14 +11,10 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
-
 #include <iostream>
-#include <bit>
 
 #include "vulkan/vulkanCore.h"
+#include "ImGuiInterface.h"
 #include "scene.h"
 
 namespace MSIVulkanDemo{
@@ -31,6 +27,9 @@ private:
 
     std::unique_ptr<Vulkan> vulkan;
     bool windowResized = false;
+    bool windowHidden = false;
+
+    std::shared_ptr<ImGuiInterface> imgui;
 
 public:
     App(){
@@ -41,7 +40,7 @@ public:
 
         initWindow();
         vulkan = std::unique_ptr<Vulkan>(new Vulkan(window));
-        imgui();
+        imgui = std::shared_ptr<ImGuiInterface>(new ImGuiInterface(*vulkan, window));
         mainLoop();
         cleanup();
 
@@ -61,39 +60,38 @@ private:
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
         auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+        
+        if(width <= 0 || height <= 0){
+            app->windowHidden = true;
+            return;
+        }else{
+            app->windowHidden = false;
+        }
+        
         app->windowResized = true;
-    }
-    
-    void imgui(){
-
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-
-        ImGui::StyleColorsDark();
-
-        ImGui_ImplGlfw_InitForVulkan(window, true);
-        ImGui_ImplVulkan_InitInfo init_info = vulkan->getImguiInitInfo();
-        ImGui_ImplVulkan_Init(&init_info);
-
     }
 
     void mainLoop(){
 
         SimpleScene scene;
+        scene.loadGui(imgui);
+        
+        vulkan->loadRenderGraph(scene);
         scene.loadScene(*vulkan);
 
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            if(windowHidden){
+                continue;
+            }
 
             if(windowResized){
                 vulkan->windowResized(window);
                 windowResized = false;
             }
 
-            vulkan->drawFrame(scene);
+            vulkan->drawFrame();
 
         }
         vulkan->waitIdle();

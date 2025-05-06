@@ -32,7 +32,7 @@ private:
     std::weak_ptr<VulkanSwapChain> swapChain;
     std::weak_ptr<VulkanCommandPool> commandPool;
     std::weak_ptr<VulkanMemoryManager> memoryManager;
-    std::weak_ptr<VulkanDescriptorPool> descriptorPool;
+    std::vector<std::weak_ptr<VulkanDescriptorPool>> descriptorPools;
     std::vector<std::weak_ptr<VulkanSemaphore>> semaphores;
     std::vector<std::weak_ptr<VulkanFence>> fences;
 
@@ -80,7 +80,7 @@ public:
             vkDestroyDevice(device, nullptr);
     }
 
-    std::shared_ptr<VulkanSwapChain> createSwapChain(){
+    std::shared_ptr<VulkanSwapChain> getSwapChain(){
         if(swapChain.expired()){
             auto sc = std::make_shared<VulkanSwapChain>(shared_from_this());
             swapChain = sc;
@@ -118,9 +118,9 @@ public:
         if(commandPool.expired()){
             auto cp = std::make_shared<VulkanCommandPool>(shared_from_this());
             commandPool = cp;
-            return cp->getCommandBuffer();
+            return cp->createCommandBuffer();
         }else{
-            return commandPool.lock()->getCommandBuffer();
+            return commandPool.lock()->createCommandBuffer();
         }
     }
 
@@ -132,6 +132,10 @@ public:
         }else{
             return memoryManager.lock();
         }
+    }
+
+    std::shared_ptr<VulkanMemoryManager> getMemoryManager(){
+        return createMemoryManager();
     }
 
     std::shared_ptr<VulkanSemaphore> createSemaphore(){ 
@@ -150,14 +154,16 @@ public:
         return fence;
     }
 
-    std::shared_ptr<VulkanDescriptorPool> createDescriptorPool(){
-        if(descriptorPool.expired()){ // TODO more descriptors pools
-            auto dp = std::make_shared<VulkanDescriptorPool>(shared_from_this());
-            descriptorPool = dp;
-            return dp;
-        }else{
-            return descriptorPool.lock();
+    std::shared_ptr<VulkanDescriptorPool> createDescriptorPool(std::vector<std::pair<VkDescriptorType, uint32_t>> customSizes = {}){
+        std::shared_ptr<VulkanDescriptorPool> dp = std::make_shared<VulkanDescriptorPool>(shared_from_this(), customSizes);
+        for(auto descriptorPool : descriptorPools){
+            if(descriptorPool.expired()){
+                descriptorPool = dp;
+                return dp;
+            }
         }
+        descriptorPools.push_back(dp);
+        return dp;
     }
 
     void waitForIdle(){

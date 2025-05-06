@@ -186,16 +186,28 @@ private:
     std::vector<std::weak_ptr<VulkanDescriptorSet>> sets;
 
 public:
-    VulkanDescriptorPool(std::shared_ptr<VulkanDeviceI> device): device(device){
+    VulkanDescriptorPool(std::shared_ptr<VulkanDeviceI> device, std::vector<std::pair<VkDescriptorType, uint32_t>> customSizes = {}): device(device){
 
-        VkDescriptorPoolSize poolSize = {};
-        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSize.descriptorCount = 1; 
+        std::vector<VkDescriptorPoolSize> poolSizes;
+
+        if(customSizes.size() > 0){
+            for(auto customSize : customSizes){
+                VkDescriptorPoolSize poolSize = {};
+                poolSize.type = customSize.first;
+                poolSize.descriptorCount = customSize.second;
+                poolSizes.push_back(poolSize);
+            }
+        }else{
+            VkDescriptorPoolSize poolSize = {};
+            poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            poolSize.descriptorCount = 1;
+            poolSizes.push_back(poolSize);
+        }
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = 1;
-        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.poolSizeCount = poolSizes.size();
+        poolInfo.pPoolSizes = poolSizes.data();
         poolInfo.maxSets = 1000; // TODO to count
 
         if (vkCreateDescriptorPool(*device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {

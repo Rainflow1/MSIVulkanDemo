@@ -8,8 +8,8 @@
 #include "interface/vulkanCommandBufferI.h"
 #include "vulkanMemory.h"
 #include "vulkanPhysicalDevice.h"
-#include "vulkanFramebuffer.h"
 #include "vulkanGraphicsPipeline.h"
+#include "vulkanFramebuffer.h"
 
 #include <iostream>
 #include <vector>
@@ -50,7 +50,7 @@ public:
         }
     }
 
-    std::shared_ptr<VulkanCommandBuffer> getCommandBuffer(){
+    std::shared_ptr<VulkanCommandBuffer> createCommandBuffer(){
         std::shared_ptr<VulkanCommandBuffer> cb = std::make_shared<VulkanCommandBuffer>(shared_from_this());
         for(auto commandbuffer : commandBuffers){
             if(commandbuffer.expired()){
@@ -72,10 +72,12 @@ public:
 };
 
 enum CommandBufferState{
-    default, // TODO get state names from documentation
-    begin,
-    beginRenderPass,
-    ended
+    Initial,
+    Recording,
+    RecordingRenderPass,
+    Executable,
+    Pending,
+    Invalid
 };
 
 class VulkanCommandBuffer : public VulkanComponent<VulkanCommandBuffer>, public VulkanCommandBufferI{
@@ -84,7 +86,7 @@ private:
 
     VkCommandBuffer commandBuffer = nullptr;
 
-    CommandBufferState state = default;
+    CommandBufferState state = Initial;
 
     std::shared_ptr<VulkanFramebuffer> bindedFramebuffer = nullptr;
     std::shared_ptr<VulkanGraphicsPipeline> bindedGraphicsPipeline = nullptr;
@@ -116,7 +118,7 @@ public:
     VulkanCommandBuffer& reset(){
         vkResetCommandBuffer(commandBuffer, 0);
 
-        state = CommandBufferState::default;
+        state = CommandBufferState::Initial;
 
         bindedGraphicsPipeline.reset();
 
@@ -125,7 +127,7 @@ public:
 
     VulkanCommandBuffer& begin(VkCommandBufferUsageFlags flags = 0){
 
-        if(state != CommandBufferState::default){
+        if(state != CommandBufferState::Initial){
             reset();
         }
 
@@ -138,31 +140,25 @@ public:
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        state = CommandBufferState::begin;
+        state = CommandBufferState::Recording;
 
         return *this;
     }
 
     VulkanCommandBuffer& beginRenderPass(std::shared_ptr<VulkanFramebuffer> framebuffer, VkCommandBufferUsageFlags flags = 0){
         
-        if(state != CommandBufferState::default){
-            reset();
-        }
-        
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = flags;
-        beginInfo.pInheritanceInfo = nullptr; // Optional
-
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to begin recording command buffer!");
+        if(state != CommandBufferState::Recording){
+            if(state != CommandBufferState::Initial){ // TODO end previus renderpass if state = recording renderpass
+                throw std::runtime_error("Command buffer wrong state: trying to end before begin");
+            }
+            begin(flags);
         }
 
         framebuffer->beginRenderPass(commandBuffer);
 
         bindedFramebuffer = framebuffer;
 
-        state = CommandBufferState::beginRenderPass;
+        state = CommandBufferState::RecordingRenderPass;
 
         return *this;
     }
@@ -267,46 +263,51 @@ public:
 
     VulkanCommandBuffer& end(){
 
-        if(state != CommandBufferState::begin){
-            throw std::runtime_error("Command buffer wrong state: trying to end before begin");
+        if(state != CommandBufferState::Recording){
+            if(state != CommandBufferState::RecordingRenderPass){
+                throw std::runtime_error("Command buffer wrong state: trying to end before begin");
+            }
+            endRenderPass();
         }
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
 
-        state = CommandBufferState::ended;
+        state = CommandBufferState::Pending;
 
         return *this;
     }
 
     VulkanCommandBuffer& endRenderPass(){
 
-        if(state != CommandBufferState::beginRenderPass){
+        if(state != CommandBufferState::RecordingRenderPass){
             throw std::runtime_error("Command buffer wrong state: trying to end renderpass before begin renderpass");
         }
 
         vkCmdEndRenderPass(commandBuffer);
         bindedFramebuffer = nullptr;
 
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to record command buffer!");
-        }
-
-        state = CommandBufferState::ended;
+        state = CommandBufferState::Recording;
 
         return *this;
     }
 
     VulkanCommandBuffer& submit(VulkanSemaphore& waitSemaphore, VulkanSemaphore& signalSemaphore, VulkanFence& fence){
         
-        if(state != CommandBufferState::ended){
-            if(state == CommandBufferState::beginRenderPass){ // TODO switch next time
+        if(state != CommandBufferState::Pending){
+
+            switch(state){
+            case CommandBufferState::RecordingRenderPass:
                 endRenderPass();
-            }else if(state == CommandBufferState::begin){
+
+            case CommandBufferState::Recording:
                 end();
-            }else{
+                break;
+            
+            default:
                 throw std::runtime_error("Command buffer wrong state: trying submit without begin");
+                break;
             }
         }
         
@@ -329,17 +330,17 @@ public:
             throw std::runtime_error("failed to submit draw command buffer!");
         }
 
-        state = CommandBufferState::default;
+        state = CommandBufferState::Initial;
 
         return *this;
     }
 
     VulkanCommandBuffer& submit(){
 
-        if(state != CommandBufferState::ended){
-            if(state == CommandBufferState::beginRenderPass){ // TODO switch next time
+        if(state != CommandBufferState::Pending){
+            if(state == CommandBufferState::RecordingRenderPass){ // TODO switch next time
                 endRenderPass();
-            }else if(state == CommandBufferState::begin){
+            }else if(state == CommandBufferState::Recording){
                 end();
             }else{
                 throw std::runtime_error("Command buffer wrong state: trying submit without begin");
@@ -356,7 +357,7 @@ public:
         }
         vkQueueWaitIdle(commandPool->getDevice()->getGraphicsQueue()); // TODO add optional bool
 
-        state = CommandBufferState::default;
+        state = CommandBufferState::Initial;
 
         return *this;
     }

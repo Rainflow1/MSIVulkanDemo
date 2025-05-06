@@ -12,6 +12,7 @@
 #include "vulkanGraphicsPipeline.h"
 #include "vulkanMemory.h"
 #include "vulkanVertexData.h"
+#include "vulkanRenderGraph.h"
 #include "interface/vulkanRendererI.h"
 
 #include <glm/glm.hpp>
@@ -24,6 +25,7 @@
 #include <chrono>
 
 namespace MSIVulkanDemo{
+
 
 class Vulkan{ // TODO to vulkan context
 
@@ -48,15 +50,14 @@ private:
     std::shared_ptr<VulkanPhysicalDevice> physicalDevice;
     std::shared_ptr<VulkanDevice> device;
     std::shared_ptr<VulkanSwapChain> swapChain;
-    std::shared_ptr<VulkanRenderPass> renderPass;
     std::shared_ptr<VulkanMemoryManager> memory;
     std::shared_ptr<VulkanDescriptorPool> descriptorPool;
 
-    std::vector<std::shared_ptr<VulkanCommandBuffer>> commandBuffers;
 
-    std::vector<std::shared_ptr<VulkanSemaphore>> imageAvailableSemaphores;
-    std::vector<std::shared_ptr<VulkanSemaphore>> renderFinishedSemaphores;
-    std::vector<std::shared_ptr<VulkanFence>> inFlightFences;
+
+    std::shared_ptr<VulkanRenderGraph> renderGraph;
+
+    
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint64_t currentFrame = 0;
@@ -68,16 +69,9 @@ public:
         surface = instance->createSurface(window);
         physicalDevice = instance->createPhysicalDevice(surface);
         device = physicalDevice->createLogicDevice();
-        swapChain = device->createSwapChain();
-        renderPass = swapChain->createRenderPass();
-
-        commandBuffers = {device->createCommandBuffer(), device->createCommandBuffer()};
-
+        swapChain = device->getSwapChain();
         memory = device->createMemoryManager();
-
-        imageAvailableSemaphores = {device->createSemaphore(), device->createSemaphore()};
-        renderFinishedSemaphores = {device->createSemaphore(), device->createSemaphore()};
-        inFlightFences = {device->createFence(true), device->createFence(true)};
+        renderGraph = std::make_shared<VulkanRenderGraph>(swapChain); // TODO better initialization
 
     }
 
@@ -88,45 +82,34 @@ public:
         }
     }
 
-    std::shared_ptr<VulkanRenderPass> getRenderPass(){
-        return renderPass;
+    std::shared_ptr<VulkanInstance> getInstance(){
+        return instance;
+    }
+
+    std::shared_ptr<VulkanPhysicalDevice> getPhysicalDevice(){
+        return physicalDevice;
+    }
+
+    std::shared_ptr<VulkanDevice> getDevice(){
+        return device;
     }
 
     std::shared_ptr<VulkanMemoryManager> getMemoryManager(){
         return memory;
     }
 
-    std::vector<std::shared_ptr<VulkanDescriptorSet>> registerDescriptorSet(VulkanUniformData& uniformData){
-        std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
-        for(auto buffer : commandBuffers){
-            sets.push_back(buffer->createDescriptorSet(uniformData));
-        }
-        return sets;
-    }
+    void drawFrame(){
+        uint64_t frameIndex = currentFrame%MAX_FRAMES_IN_FLIGHT;
 
-    void drawFrame(VulkanRendererI& renderer){
-        uint32_t frameIndex = currentFrame%MAX_FRAMES_IN_FLIGHT;
-
-        inFlightFences[frameIndex]->reset();
-
-        commandBuffers[frameIndex]->reset();
-
-        uint32_t imageId = swapChain->getNextImage(*imageAvailableSemaphores[frameIndex]);
-
-        if(imageId == -1){
-            return;
-        }
-
-        auto frameBuffer = swapChain->getFramebuffer(imageId, renderPass);
-        commandBuffers[frameIndex]->beginRenderPass(frameBuffer);
-        renderer.render(*commandBuffers[frameIndex]);
-        commandBuffers[frameIndex]->submit(*imageAvailableSemaphores[frameIndex], *renderFinishedSemaphores[frameIndex], *inFlightFences[frameIndex]);
-
-
-        swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);
-        inFlightFences[frameIndex]->waitFor();
+        renderGraph->render(frameIndex);
 
         currentFrame++;
+    }
+
+    void loadRenderGraph(VulkanRenderGraphBuilderI& builder){
+        
+        builder.buildRenderGraph(renderGraph);
+
     }
 
     void windowResized(GLFWwindow* window){
@@ -137,28 +120,6 @@ public:
 
     void waitIdle(){
         device->waitForIdle();
-    }
-
-    ImGui_ImplVulkan_InitInfo getImguiInitInfo(){
-
-        ImGui_ImplVulkan_InitInfo init_info = {};
-        //init_info.ApiVersion = VK_API_VERSION_1_3;
-        init_info.Instance = *instance;
-        init_info.PhysicalDevice = *physicalDevice;
-        init_info.Device = *device;
-        init_info.QueueFamily = physicalDevice->findQueueFamilies(*physicalDevice).graphicsFamily.value();
-        init_info.Queue = device->getGraphicsQueue();
-        init_info.PipelineCache = g_PipelineCache;
-        init_info.DescriptorPool = g_DescriptorPool;
-        init_info.RenderPass = graphicsPipeline->getRenderPass();
-        init_info.Subpass = 0;
-        init_info.MinImageCount = 3;
-        init_info.ImageCount = wd->ImageCount;
-        init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-        init_info.Allocator = g_Allocator;
-        init_info.CheckVkResultFn = check_vk_result;
-
-        return init_info;
     }
 
 private:
