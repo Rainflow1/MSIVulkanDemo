@@ -10,7 +10,7 @@
 namespace MSIVulkanDemo{
 
 
-class MaterialComponent : public Component{
+class MaterialComponent : public Component, public VulkanDescriptorSetOwner{
 private:
     std::shared_ptr<ShaderProgram> shaderProgram; 
     std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet;

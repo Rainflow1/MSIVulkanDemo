@@ -71,14 +71,12 @@ public:
 class Scene : public VulkanRendererI, public VulkanRenderGraphBuilderI{
 
 private:
-    std::vector<GameObject> gameObjects;
+    std::map<std::string, std::shared_ptr<GameObject>> gameObjects;
     std::shared_ptr<entt::registry> entityRegistry;
     std::shared_ptr<ImGuiInterface> gui;
 
     std::shared_ptr<VulkanRenderGraph> renderGraph;
     std::shared_ptr<VulkanRenderPass> mainRenderpass;
-
-    std::chrono::steady_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
 
 protected:
     ResourceManager resourceManager;
@@ -97,7 +95,7 @@ public:
 
     virtual void setup() = 0;
 
-    virtual void update() = 0;
+    virtual void update(float deltaTime) = 0;
 
     void buildRenderGraph(std::shared_ptr<VulkanRenderGraph> renderGraph){
         //renderGraph.addRenderPass("test");
@@ -133,24 +131,7 @@ public:
 
     void render(VulkanCommandBuffer& commandBuffer){
 
-        static auto startTime = std::chrono::high_resolution_clock::now();
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
-        static uint32_t frames = 0, totalFrames = 0;
-        static float cumulativeTime = 0.0f;
-        cumulativeTime += deltaTime;
-        frames++;
-        totalFrames++;
-        
-        if(cumulativeTime >= 1.0f){
-            cumulativeTime = 0.0f;
-            std::cout << frames << ", " << totalFrames/totalTime << ", " << deltaTime << std::endl;
-            frames = 0;
-        }
-        
-
-        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), commandBuffer.getWidth() / (float) commandBuffer.getHeight(), 0.1f, 10.0f);
         proj[1][1] *= -1;
 
@@ -158,7 +139,11 @@ public:
 
         for(auto entity : entityView){
             
-            glm::mat4 model = glm::rotate(glm::translate(glm::mat4(1.0f), entityView.get<TransformComponent>(entity).getPosition()), totalTime * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            auto transform = entityView.get<TransformComponent>(entity);
+
+            glm::mat4 model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.0f), transform.getPosition()), transform.getRotationAngle(), transform.getRotationVec()), transform.getScale());
+
+            renderGraph->registerDescriptorSet(&entityView.get<MaterialComponent>(entity));
 
             commandBuffer
             .bind(entityView.get<MaterialComponent>(entity).getGraphicsPipeline())
@@ -171,22 +156,20 @@ public:
 
         }
 
-        previousTime = currentTime;
     }
 
     void loadScene(Vulkan& context){
-
-        setup();
-
-        
         resourceManager.addDependency<ShaderProgram>(mainRenderpass);
         resourceManager.addDependency<Mesh>(context.getMemoryManager());
 
+        setup();
+/*
         auto entityView = entityRegistry->view<MaterialComponent>();
 
         for(auto [entity, mat] : entityView.each()){
             mat.setDescriptorSet(renderGraph->registerDescriptorSet(mat.getGraphicsPipeline()->getUniformData())); // TODO make that indepented of scene/renderGraph load order
         }
+*/
     }
 
     void unloadScene(){
@@ -198,11 +181,19 @@ public:
     }
 
 protected:
-    GameObject& spawnGameObject(){
-        return gameObjects.emplace_back(entityRegistry); // TODO add names to gameobjects
+    GameObject* spawnGameObject(std::string objName){
+        std::shared_ptr<GameObject> ptr = std::make_shared<GameObject>(entityRegistry);
+        gameObjects.insert({objName, ptr});
+        return &*ptr;
     }
 
-
+    GameObject* getGameObject(std::string objName){     
+        if(gameObjects.find(objName) == gameObjects.end()){
+            return nullptr;
+        }
+        std::shared_ptr<GameObject> ptr = gameObjects[objName];
+        return &*ptr;
+    }
 
 private:
 
@@ -213,30 +204,41 @@ private:
 class SimpleScene : public Scene{
 
 public:
-    SimpleScene() : Scene(){ // TODO no consturctor
-
-    }
-
-    ~SimpleScene(){
-
-    }
 
     void setup(){
         
-        GameObject& obj = spawnGameObject();
-        obj.addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
-        obj.addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
-        obj.addComponent<TransformComponent>(glm::vec3(1.0f, 1.0f, 0.0f));
-        obj.addComponent<RenderComponent>();
+        GameObject* obj = spawnGameObject("Object1");
+        obj->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
+        obj->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
+        obj->addComponent<TransformComponent>(
+            glm::vec3(-1.0f, 0.0f, 0.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f), 
+            glm::vec3(1.0f, 1.0f, 1.0f)
+        );
+        obj->addComponent<RenderComponent>();
 
-        GameObject& obj2 = spawnGameObject();
-        obj2.addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
-        obj2.addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
-        obj2.addComponent<TransformComponent>(glm::vec3(1.0f, -1.0f, 0.0f));
-        obj2.addComponent<RenderComponent>();
     }
 
-    void update(){
+    void update(float deltaTime){
+        
+        static float totalTime = 0.0;
+        totalTime += deltaTime;
+
+        if(!getGameObject("Object2")){
+            GameObject* obj2 = spawnGameObject("Object2");
+            obj2->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
+            obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
+            obj2->addComponent<TransformComponent>(
+                glm::vec3(0.5f, 0.0f, 0.0f), 
+                glm::vec3(0.0f, 0.0f, 0.0f), 
+                glm::vec3(0.2f, 0.2f, 0.2f)
+            );
+            obj2->addComponent<RenderComponent>();
+        }
+
+        GameObject* obj = getGameObject("Object1");
+
+        obj->getComponent<TransformComponent>().setRotation(glm::radians(45.0f) * totalTime, glm::vec3(0.0f, 0.0f, 1.0f));
         
     }
 

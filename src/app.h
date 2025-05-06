@@ -31,6 +31,9 @@ private:
 
     std::shared_ptr<ImGuiInterface> imgui;
 
+    std::chrono::steady_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
+    const std::chrono::steady_clock::time_point startTime = std::chrono::high_resolution_clock::now();
+
 public:
     App(){
 
@@ -71,6 +74,22 @@ private:
         app->windowResized = true;
     }
 
+    void fpsCalc(std::chrono::steady_clock::time_point currentTime, std::chrono::steady_clock::time_point startTime, float deltaTime){
+        float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        
+        static uint32_t frames = 0, totalFrames = 0;
+        static float cumulativeTime = 0.0f;
+        cumulativeTime += deltaTime;
+        frames++;
+        totalFrames++;
+        
+        if(cumulativeTime >= 1.0f){
+            cumulativeTime = 0.0f;
+            std::cout << frames << ", " << totalFrames/totalTime << ", " << deltaTime << std::endl;
+            frames = 0;
+        }
+    }
+
     void mainLoop(){
 
         SimpleScene scene;
@@ -81,6 +100,12 @@ private:
 
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
+            scene.update(deltaTime);
+            fpsCalc(currentTime, startTime, deltaTime);
+            previousTime = currentTime;
 
             if(windowHidden){
                 continue;

@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include "interface/vulkanSwapChainI.h"
+#include "interface/vulkanDescriptorSetOwner.h"
 #include "vulkanSync.h"
 #include "vulkanRenderPass.h"
 #include "vulkanMemory.h"
@@ -222,13 +223,24 @@ public:
         swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);
         inFlightFences[frameIndex]->waitFor();
     }
-
+/*
     std::vector<std::shared_ptr<VulkanDescriptorSet>> registerDescriptorSet(VulkanUniformData& uniformData){
         std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
         for(auto buffer : commandBuffers){
             sets.push_back(buffer->createDescriptorSet(uniformData));
         }
         return sets;
+    }
+*/
+    void registerDescriptorSet(VulkanDescriptorSetOwner* owner){
+        std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
+        if(owner->getDescriptorSet().size() > 0){
+            return;
+        }
+        for(auto buffer : commandBuffers){
+            sets.push_back(buffer->createDescriptorSet(owner->getGraphicsPipeline()->getUniformData()));
+        }
+        owner->setDescriptorSet(sets);
     }
 
     std::shared_ptr<VulkanRenderPass> getRenderPass(std::string name){

@@ -71,6 +71,14 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "fstream": "cpp",
-        "unordered_set": "cpp"
+        "unordered_set": "cpp",
+        "any": "cpp",
+        "chrono": "cpp",
+        "cinttypes": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "forward_list": "cpp",
+        "ranges": "cpp",
+        "shared_mutex": "cpp"
     }
 }
