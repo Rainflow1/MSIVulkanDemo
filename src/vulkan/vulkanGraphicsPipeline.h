@@ -94,7 +94,7 @@ public:
 
         vertexUniforms.reset(vertShader->getUniformData());
         fragmentUniforms.reset(fragShader->getUniformData());
-        std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts = {vertexUniforms->getUniformLayout(renderPass->getDevice()), fragmentUniforms->getUniformLayout(renderPass->getDevice())};
+        std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts = {(*vertexUniforms + *fragmentUniforms).getUniformLayout(renderPass->getDevice())};
 
         PipelineLayout pipeline = PipelineLayout(*renderPass->getSwapChain(), uniformLayouts);
         pipelineLayout = pipeline.pipelineLayout;
@@ -126,8 +126,8 @@ public:
         return graphicsPipeline;
     }
 
-    VulkanUniformData& getUniformData(){
-        return *vertexUniforms; // TODO combine vertex and fragment
+    VulkanUniformData getUniformData(){
+        return *vertexUniforms + *fragmentUniforms;
     }
 
     VulkanSwapChainI& getSwapChain(){

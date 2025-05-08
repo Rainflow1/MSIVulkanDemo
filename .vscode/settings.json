@@ -79,6 +79,16 @@
         "deque": "cpp",
         "forward_list": "cpp",
         "ranges": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "bitset": "cpp",
+        "codecvt": "cpp",
+        "filesystem": "cpp",
+        "memory_resource": "cpp",
+        "numeric": "cpp",
+        "queue": "cpp",
+        "random": "cpp",
+        "regex": "cpp",
+        "stack": "cpp",
+        "variant": "cpp"
     }
 }

@@ -54,6 +54,7 @@ public:
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        io.DisplaySize = {1920, 1080};
 
         ImGui::StyleColorsDark();
 
@@ -76,14 +77,12 @@ public:
     }
 
     void render(VulkanCommandBuffer& commandBuffer){
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::ShowDemoWindow();
-        ImGui::Render();
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
-
     }
 
     void initVulkan(std::shared_ptr<VulkanRenderPass> renderPass){
@@ -91,6 +90,10 @@ public:
         ImGui_ImplVulkan_InitInfo init_info = getImguiInitInfo(renderPass);
         ImGui_ImplVulkan_Init(&init_info);
         hasVulkanInited = true;
+
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
     }
 
 private:

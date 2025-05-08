@@ -42,7 +42,7 @@ public:
 
         std::string code = readShaderFile(filename);
         std::string preprocesedCode = preprocessGLSL(filename, shaderType, code);
-        std::cout << preprocesedCode << std::endl;
+        //std::cout << preprocesedCode << std::endl;
         compiledCode = compileGLSL(filename, shaderType, preprocesedCode);
 
         if(spvReflectCreateShaderModule(compiledCode.size() * sizeof(uint32_t), compiledCode.data(), &module) != SPV_REFLECT_RESULT_SUCCESS){
@@ -50,7 +50,7 @@ public:
         }
 
         //printCompiledCode(compiledCode);
-        reflectTest(compiledCode);
+        //reflectTest(compiledCode);
 
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -113,20 +113,21 @@ public:
             throw std::runtime_error("Cannot fetch input vars");
         }
 
-        std::vector<std::vector<std::pair<std::string, size_t>>> attributes;
+        std::map<uint32_t ,std::vector<std::pair<std::string, size_t>>> attributes;
 
         for(uint32_t i = 0; i < varCount; i++){
             // TODO support sets
+
             for(uint32_t j = 0; j < inputVars[i]->binding_count; j++){
                 auto binding = inputVars[i]->bindings[j];
                 std::vector<std::pair<std::string, size_t>> blockMembers;
 
                 for(uint32_t k = 0; k < binding->block.member_count; k++){
                     auto member = binding->block.members[k];
-                    blockMembers.push_back({std::string(member.name), member.size});
+                    blockMembers.push_back({std::string(member.name), member.padded_size});
                 }
 
-                attributes.push_back(blockMembers);
+                attributes.insert({binding->binding, blockMembers});
             }
 
             

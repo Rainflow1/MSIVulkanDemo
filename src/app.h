@@ -23,7 +23,7 @@ class App{
 
 private:
     GLFWwindow* window;
-    const uint32_t WIDTH = 800, HEIGHT = 600;
+    const uint32_t WIDTH = 1920, HEIGHT = 1080;
 
     std::unique_ptr<Vulkan> vulkan;
     bool windowResized = false;

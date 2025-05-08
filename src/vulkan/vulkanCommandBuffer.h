@@ -225,6 +225,17 @@ public:
         return *this;
     }
 
+    VulkanCommandBuffer& setUniform(std::pair<size_t, std::vector<float>> val){
+
+        if(!bindedGraphicsPipeline){
+            throw std::runtime_error("Need to bind graphics pipeline first");
+        }
+
+        uniformBuffer->uploadData(val.first, val.second);
+
+        return *this;
+    }
+
     VulkanCommandBuffer& draw(uint32_t vertexCount, uint32_t indexCount = 0){
 
         if(indexCount > 0){

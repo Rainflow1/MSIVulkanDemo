@@ -40,18 +40,18 @@ public:
         memoryManager = std::any_cast<std::shared_ptr<VulkanMemoryManager>>(dependencies[0]);
 
 
-        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
+        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"normal", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
 
         tak.append({
-            {-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
-            {0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f},
-            {0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f},
-            {-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f},
+            {-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, -1.0f, -1.0f, -1.0f},
+            {0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f},
+            {0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, -1.0f},
+            {-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f},
 
-            {-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f},
-            {0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f},
-            {0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f},
-            {-0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f}
+            {-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, -1.0f, -1.0f, 1.0f},
+            {0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f},
+            {0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
+            {-0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f}
         });
 
         tak.addIndices({

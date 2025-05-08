@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "component.h"
 #include "resourceManager.h"
@@ -131,7 +132,7 @@ public:
 
     void render(VulkanCommandBuffer& commandBuffer){
 
-        glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 view = glm::lookAt(glm::vec3(-2.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), commandBuffer.getWidth() / (float) commandBuffer.getHeight(), 0.1f, 10.0f);
         proj[1][1] *= -1;
 
@@ -151,8 +152,13 @@ public:
             .bind(entityView.get<MaterialComponent>(entity).getDescriptorSet())
             .setUniform(entityView.get<MaterialComponent>(entity).uniform("model", model))
             .setUniform(entityView.get<MaterialComponent>(entity).uniform("view", view))
-            .setUniform(entityView.get<MaterialComponent>(entity).uniform("proj", proj))
-            .draw(entityView.get<ModelComponent>(entity).getCount());
+            .setUniform(entityView.get<MaterialComponent>(entity).uniform("proj", proj));
+
+            for(auto uniform : entityView.get<MaterialComponent>(entity).getUserUniforms()){
+                commandBuffer.setUniform(uniform);
+            }
+
+            commandBuffer.draw(entityView.get<ModelComponent>(entity).getCount());
 
         }
 
@@ -211,7 +217,7 @@ public:
         obj->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
         obj->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
         obj->addComponent<TransformComponent>(
-            glm::vec3(-1.0f, 0.0f, 0.0f), 
+            glm::vec3(1.0f, 0.0f, 0.0f), 
             glm::vec3(0.0f, 0.0f, 0.0f), 
             glm::vec3(1.0f, 1.0f, 1.0f)
         );
@@ -220,13 +226,13 @@ public:
     }
 
     void update(float deltaTime){
-        
+
         static float totalTime = 0.0;
         totalTime += deltaTime;
 
         if(!getGameObject("Object2")){
             GameObject* obj2 = spawnGameObject("Object2");
-            obj2->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
+            obj2->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/nie.glsl"));
             obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
             obj2->addComponent<TransformComponent>(
                 glm::vec3(0.5f, 0.0f, 0.0f), 
@@ -237,9 +243,27 @@ public:
         }
 
         GameObject* obj = getGameObject("Object1");
-
         obj->getComponent<TransformComponent>().setRotation(glm::radians(45.0f) * totalTime, glm::vec3(0.0f, 0.0f, 1.0f));
         
+        auto obj1Pos = obj->getComponent<TransformComponent>().getPosition();
+
+        GameObject* obj2 = getGameObject("Object2");
+        if(obj2){
+            obj2->getComponent<TransformComponent>().setPosition({obj1Pos.x + cosf(-totalTime * 2.0f), obj1Pos.y + sinf(-totalTime * 2.0f), obj1Pos.z });
+        }
+
+        obj->getComponent<MaterialComponent>().setUniform("lightPos", obj2->getComponent<TransformComponent>().getPosition());
+        
+        static glm::vec3 cubeColor = {1.0f, 0.0f, 0.0f};
+
+        ImGui::Begin("Color picker");
+
+        ImGui::ColorPicker3("Cube color", glm::value_ptr(cubeColor));
+
+        obj->getComponent<MaterialComponent>().setUniform("color", cubeColor);
+
+        ImGui::End();
+
     }
 
 };

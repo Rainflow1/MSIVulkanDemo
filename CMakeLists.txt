@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.26)
 
 project(MSIVulkanDemo)
 
@@ -23,3 +23,12 @@ target_link_libraries(main unofficial::shaderc::shaderc)
 target_link_libraries(main GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(main EnTT::EnTT)
 target_link_libraries(main unofficial::spirv-reflect)
+
+
+add_custom_target(copy_shaders
+	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different 
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/"
+        "$<TARGET_FILE_DIR:main>/shaders"
+    COMMENT "Copying shaders"
+)
+add_dependencies(main copy_shaders)

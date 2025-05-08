@@ -263,6 +263,21 @@ class VulkanUniformBuffer : public VulkanBuffer{
             }
 
         }
+
+        void uploadData(size_t offset, std::vector<float> val){
+            
+            VkMemoryPropertyFlags memPropFlags;
+            vmaGetAllocationMemoryProperties(*allocator, allocation, &memPropFlags);
+
+            if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT){
+
+                vmaCopyMemoryToAllocation(*allocator, static_cast<void*>(val.data()), allocation, bindedDescriptorSet->getOffset() + offset, val.size() * sizeof(float));
+            
+            }else{
+                throw std::runtime_error("Nieeeee");
+            }
+
+        }
     
     };
 

@@ -29,7 +29,7 @@ private:
 
     VkRenderPass renderPass = nullptr;
     
-    std::weak_ptr<VulkanGraphicsPipeline> graphicsPipeline; // TODO vector
+    std::vector<std::weak_ptr<VulkanGraphicsPipeline>> graphicsPipelines;
     std::vector<std::shared_ptr<VulkanFramebuffer>> framebuffers;
 
 protected:
@@ -116,13 +116,15 @@ public:
     }
 
     std::shared_ptr<VulkanGraphicsPipeline> createGraphicsPipeline(std::vector<std::shared_ptr<VulkanShader>> shaders){
-        if(graphicsPipeline.expired()){
-            std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), shaders);
-            graphicsPipeline = gp;
-            return gp;
-        }else{
-            return graphicsPipeline.lock();
+        std::shared_ptr<VulkanGraphicsPipeline> gp = std::make_shared<VulkanGraphicsPipeline>(shared_from_this(), shaders);
+        for(auto graphicsPipeline : graphicsPipelines){
+            if(graphicsPipeline.expired()){
+                graphicsPipeline = gp;
+                return gp;
+            }
         }
+        graphicsPipelines.push_back(gp);
+        return gp;
     }
 
     std::shared_ptr<VulkanDeviceI> getDevice(){
