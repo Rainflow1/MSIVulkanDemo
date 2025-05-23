@@ -100,7 +100,29 @@ public:
         vertexCount += 1;
     }
 
+    void append(std::vector<float> val){
+        
+        if(sizeof(float) * val.size() != attributeStride){
+            throw std::exception("Mismatch sizes of attribute and argument");
+        }
+
+        vertexData.insert(vertexData.end(), val.begin(), val.end());
+        vertexCount += 1;
+    }
+
     void append(std::initializer_list<std::initializer_list<float>> values){
+        
+        for(auto val : values){
+            if(sizeof(float) * val.size() != attributeStride){
+                throw std::exception("Mismatch sizes of attribute and argument");
+            }
+    
+            vertexData.insert(vertexData.end(), val.begin(), val.end());
+            vertexCount += 1;
+        }
+    }
+
+    void append(std::vector<std::vector<float>> values){
         
         for(auto val : values){
             if(sizeof(float) * val.size() != attributeStride){
@@ -117,6 +139,10 @@ public:
     }
 
     void addIndices(std::initializer_list<uint32_t> indices){
+        indexData.insert(indexData.end(), indices.begin(), indices.end());
+    }
+
+    void addIndices(std::vector<uint32_t> indices){
         indexData.insert(indexData.end(), indices.begin(), indices.end());
     }
 

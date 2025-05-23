@@ -99,12 +99,8 @@ public:
     virtual void update(float deltaTime) = 0;
 
     void buildRenderGraph(std::shared_ptr<VulkanRenderGraph> renderGraph){
-        //renderGraph.addRenderPass("test");
-        //renderGraph.addRenderPass("Shadow", 
-        //    VulkanRenderGraph::DepthOnly()
-        //);
+
         renderGraph->addRenderPass("Main", 
-            //VulkanRenderGraph::AddInput("Shadow", "ShadowMap"), 
             VulkanRenderGraph::AddRenderFunction([&](VulkanCommandBuffer& commandBuffer){
                 this->render(commandBuffer);
             }),
@@ -123,7 +119,7 @@ public:
 
         }
         
-        renderGraph->bake(); // TODO consider who should bake the graph
+        renderGraph->bake();
 
         this->renderGraph = renderGraph;
         mainRenderpass = renderGraph->getRenderPass("Main");
@@ -142,7 +138,10 @@ public:
             
             auto transform = entityView.get<TransformComponent>(entity);
 
-            glm::mat4 model = glm::scale(glm::rotate(glm::translate(glm::mat4(1.0f), transform.getPosition()), transform.getRotationAngle(), transform.getRotationVec()), transform.getScale());
+            glm::mat4 model = glm::scale(
+                glm::rotate(glm::translate(glm::mat4(1.0f), transform.getPosition()),
+                transform.getRotationAngle(), transform.getRotationVec()), transform.getScale()
+            );
 
             renderGraph->registerDescriptorSet(&entityView.get<MaterialComponent>(entity));
 
@@ -215,11 +214,11 @@ public:
         
         GameObject* obj = spawnGameObject("Object1");
         obj->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/tak.glsl"));
-        obj->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
+        obj->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/torus.glb"));
         obj->addComponent<TransformComponent>(
             glm::vec3(1.0f, 0.0f, 0.0f), 
             glm::vec3(0.0f, 0.0f, 0.0f), 
-            glm::vec3(1.0f, 1.0f, 1.0f)
+            glm::vec3(0.5f, 0.5f, 0.5f)
         );
         obj->addComponent<RenderComponent>();
 
@@ -233,11 +232,11 @@ public:
         if(!getGameObject("Object2")){
             GameObject* obj2 = spawnGameObject("Object2");
             obj2->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/nie.glsl"));
-            obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/tak.cos"));
+            obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/alter.glb"));
             obj2->addComponent<TransformComponent>(
                 glm::vec3(0.5f, 0.0f, 0.0f), 
                 glm::vec3(0.0f, 0.0f, 0.0f), 
-                glm::vec3(0.2f, 0.2f, 0.2f)
+                glm::vec3(0.1f, 0.1f, 0.1f)
             );
             obj2->addComponent<RenderComponent>();
         }

@@ -12,8 +12,9 @@
       ]
     },
     "shaderc",
+    "spirv-reflect",
     "vulkan",
     "vulkan-memory-allocator",
-    "spirv-reflect"
+    "tinygltf"
   ]
 }

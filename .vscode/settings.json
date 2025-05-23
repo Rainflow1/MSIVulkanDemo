@@ -89,6 +89,8 @@
         "random": "cpp",
         "regex": "cpp",
         "stack": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "valarray": "cpp",
+        "csignal": "cpp"
     }
 }

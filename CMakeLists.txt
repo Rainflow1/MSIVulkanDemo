@@ -12,6 +12,7 @@ find_package(unofficial-shaderc CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(EnTT REQUIRED)
 find_package(unofficial-spirv-reflect REQUIRED)
+find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 
 add_executable(main src/main.cpp)
 
@@ -23,6 +24,7 @@ target_link_libraries(main unofficial::shaderc::shaderc)
 target_link_libraries(main GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(main EnTT::EnTT)
 target_link_libraries(main unofficial::spirv-reflect)
+target_include_directories(main PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 
 
 add_custom_target(copy_shaders
@@ -32,3 +34,11 @@ add_custom_target(copy_shaders
     COMMENT "Copying shaders"
 )
 add_dependencies(main copy_shaders)
+
+add_custom_target(copy_models
+	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different 
+        "${CMAKE_CURRENT_SOURCE_DIR}/models/"
+        "$<TARGET_FILE_DIR:main>/models"
+    COMMENT "Copying models"
+)
+add_dependencies(main copy_models)
