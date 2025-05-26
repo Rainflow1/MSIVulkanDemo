@@ -10,6 +10,7 @@
 #include "component.h"
 #include "resourceManager.h"
 #include "vulkan/vulkanCore.h"
+#include "input.h"
 
 #include <iostream>
 #include <vector>
@@ -19,7 +20,7 @@
 namespace MSIVulkanDemo{
 
 
-class GameObject{
+class GameObject : public std::enable_shared_from_this<GameObject>{
 
 private:
     std::shared_ptr<entt::registry> entityRegistry;
@@ -46,10 +47,11 @@ public:
     template<typename T, typename... Args>
     typename std::enable_if<std::is_base_of<Component, T>::value>::type
     addComponent(Args&... args){
-        entityRegistry->emplace<T>(entityID, args...);
+        Component& component = static_cast<Component&>(entityRegistry->emplace<T>(entityID, args...));
+        component.owner = shared_from_this();
     }
 
-    template<typename T, typename... Args>
+    template<typename T>
     typename std::enable_if<std::is_base_of<Component, T>::value, T&>::type
     getComponent(){
 
@@ -79,12 +81,17 @@ private:
     std::shared_ptr<VulkanRenderGraph> renderGraph;
     std::shared_ptr<VulkanRenderPass> mainRenderpass;
 
+    GameObject* mainCamera;
+
 protected:
     ResourceManager resourceManager;
 
 public:
     Scene(){
         entityRegistry = std::shared_ptr<entt::registry>(new entt::registry());
+        mainCamera = spawnGameObject("MainCamera");
+        mainCamera->addComponent<TransformComponent>(glm::vec3(-2.0f, 0.0f, 1.0f));
+        mainCamera->addComponent<CameraComponent>();
     }
 
     Scene(Scene& other) = delete;
@@ -96,7 +103,15 @@ public:
 
     virtual void setup() = 0;
 
-    virtual void update(float deltaTime) = 0;
+    void updateScene(float deltaTime, Input& input){
+
+        auto& camera = mainCamera->getComponent<CameraComponent>();
+        camera.provideInput(deltaTime, input);
+
+        return this->update(deltaTime, input);
+    }
+
+    virtual void update(float deltaTime, Input& input) = 0;
 
     void buildRenderGraph(std::shared_ptr<VulkanRenderGraph> renderGraph){
 
@@ -128,9 +143,11 @@ public:
 
     void render(VulkanCommandBuffer& commandBuffer){
 
-        glm::mat4 view = glm::lookAt(glm::vec3(-2.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        auto& camera = mainCamera->getComponent<CameraComponent>();
+
+        glm::mat4 view = camera.getView();
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), commandBuffer.getWidth() / (float) commandBuffer.getHeight(), 0.1f, 10.0f);
-        proj[1][1] *= -1;
+        proj[1][1] *= -1; // TODO to camera
 
         auto entityView = entityRegistry->view<RenderComponent, ModelComponent, MaterialComponent, TransformComponent>();
 
@@ -224,7 +241,7 @@ public:
 
     }
 
-    void update(float deltaTime){
+    void update(float deltaTime, Input& input){
 
         static float totalTime = 0.0;
         totalTime += deltaTime;
@@ -232,7 +249,7 @@ public:
         if(!getGameObject("Object2")){
             GameObject* obj2 = spawnGameObject("Object2");
             obj2->addComponent<MaterialComponent>(resourceManager.getResource<ShaderProgram>("./shaders/nie.glsl"));
-            obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/alter.glb"));
+            obj2->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/cube.glb"));
             obj2->addComponent<TransformComponent>(
                 glm::vec3(0.5f, 0.0f, 0.0f), 
                 glm::vec3(0.0f, 0.0f, 0.0f), 

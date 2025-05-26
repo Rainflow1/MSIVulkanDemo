@@ -16,6 +16,7 @@
 #include "vulkan/vulkanCore.h"
 #include "ImGuiInterface.h"
 #include "scene.h"
+#include "input.h"
 
 namespace MSIVulkanDemo{
 
@@ -28,6 +29,9 @@ private:
     std::unique_ptr<Vulkan> vulkan;
     bool windowResized = false;
     bool windowHidden = false;
+
+    bool guiMode = true;
+    Input inputMap;
 
     std::shared_ptr<ImGuiInterface> imgui;
 
@@ -59,6 +63,8 @@ private:
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetKeyCallback(window, inputKeyCallback);
+        glfwSetCursorPosCallback(window, cursorPositionCallback);
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -73,6 +79,77 @@ private:
         
         app->windowResized = true;
     }
+
+    static void inputKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
+        auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+
+        if(key == GLFW_KEY_TAB && action == GLFW_RELEASE){
+            app->guiMode = !app->guiMode;
+
+            if(app->guiMode){
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }else{
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            }
+        }
+
+        if(!app->guiMode){
+
+            const char* keyNameChar = glfwGetKeyName(key, scancode);
+
+            std::string keyName;
+
+            if(keyNameChar){
+                std::cout << keyNameChar << std::endl;
+                keyName = std::string(keyNameChar);
+            }else{
+                switch(key){
+                case GLFW_KEY_LEFT_SHIFT:
+                    keyName = "shift"; // TODO more keys
+                    break;
+                
+                default:
+                    keyName = "~";
+                    break;
+                }
+            }
+
+            Input::keyAction act = Input::None;
+
+            switch (action){
+            case GLFW_RELEASE:
+                act = Input::Released;
+                break;
+            case GLFW_PRESS:
+                act = Input::Pressed;
+                break;
+            case GLFW_REPEAT:
+                act = Input::Hold;
+                break;
+            default:
+                break;
+            }
+
+            app->inputMap.setKey({keyName, act});
+        }
+    }
+
+    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos){
+        auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+
+        static glm::vec2 lastMousePos = {xpos, ypos};
+
+        if(!app->guiMode){
+
+            float xoffset = xpos - lastMousePos.x;
+            float yoffset = lastMousePos.y - ypos; 
+
+            app->inputMap.setMouse({xpos, ypos}, {xoffset, yoffset});
+        }
+
+        lastMousePos = {xpos, ypos};
+    }
+
 
     void fpsCalc(std::chrono::steady_clock::time_point currentTime, std::chrono::steady_clock::time_point startTime, float deltaTime){
         float totalTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
@@ -103,7 +180,10 @@ private:
 
             auto currentTime = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
-            scene.update(deltaTime);
+            
+            scene.updateScene(deltaTime, inputMap);
+            inputMap.update();
+            
             fpsCalc(currentTime, startTime, deltaTime);
             previousTime = currentTime;
 

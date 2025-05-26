@@ -15,7 +15,11 @@ private:
     float rotationAngle;
 
 public:
-    TransformComponent(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale): position(position), scale(scale), rotationVec(glm::vec3(0.0f, 1.0f, 0.0f)){
+    TransformComponent(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale): position(position), scale(scale), rotationVec(glm::vec3(0.0f, 1.0f, 0.0f)){ // TODO rotation
+
+    }
+
+    TransformComponent(glm::vec3 position): position(position), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotationVec(glm::vec3(0.0f, 1.0f, 0.0f)){
 
     }
 
