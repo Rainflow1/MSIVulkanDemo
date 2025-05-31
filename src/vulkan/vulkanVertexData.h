@@ -63,7 +63,7 @@ public:
         
     }
 
-    VkVertexInputBindingDescription getBindingDescription(){
+    VkVertexInputBindingDescription getBindingDescription() const{
         VkVertexInputBindingDescription bindingDescription = {};
         bindingDescription.binding = 0;
         bindingDescription.stride = static_cast<uint32_t>(attributeStride);
@@ -72,7 +72,7 @@ public:
         return bindingDescription;
     }
 
-    std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions(){
+    std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() const{
         std::vector<VkVertexInputAttributeDescription> vec;
 
         for(auto& pair: attributeDescriptions){

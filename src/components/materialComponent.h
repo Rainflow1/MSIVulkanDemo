@@ -16,6 +16,7 @@ private:
     std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet;
 
     std::map<std::string, std::vector<float>> userUniforms;
+    std::map<std::string, std::shared_ptr<Texture>> textures;
 
 public:
     MaterialComponent(std::shared_ptr<ShaderProgram> shaderProgram) : shaderProgram(shaderProgram){
@@ -53,6 +54,10 @@ public:
         userUniforms.insert({name, arr});
     }
 
+    void setTexture(std::string name, std::shared_ptr<Texture> texture){
+        textures.insert({name, texture});
+    }
+
     std::vector<std::pair<size_t, std::vector<float>>> getUserUniforms(){
         std::vector<std::pair<size_t, std::vector<float>>> uniforms;
 
@@ -65,6 +70,15 @@ public:
 
     void setDescriptorSet(std::vector<std::shared_ptr<VulkanDescriptorSet>> sets){
         descriptorSet = sets;
+
+        for(const auto& [name, texture] : textures){
+            for(auto& set : descriptorSet){
+                set->addTexture(name, texture->getTextureView(), texture->getTextureSampler());
+            }
+        }
+        for(auto& set : descriptorSet){
+            set->writeDescriptorSet(shaderProgram->getGraphicsPipeline()->getUniformData());
+        }
     }
 
     std::vector<std::shared_ptr<VulkanDescriptorSet>> getDescriptorSet(){

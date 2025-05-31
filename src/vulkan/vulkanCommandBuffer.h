@@ -194,6 +194,10 @@ public:
 
     VulkanCommandBuffer& bind(std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet){
 
+        if(descriptorSet.size() <= 0){
+            throw std::runtime_error("Descriptor set should not be empty");
+        }
+
         uniformBuffer->bindDescriptorSet(*this, bindedGraphicsPipeline, descriptorSet);
 
         return *this;
@@ -208,7 +212,7 @@ public:
         return bindedFramebuffer->getResolution().second;
     }
 
-    std::shared_ptr<VulkanDescriptorSet> createDescriptorSet(VulkanUniformData& uniformData){
+    std::shared_ptr<VulkanDescriptorSet> createDescriptorSet(const VulkanUniformData& uniformData){
         return uniformBuffer->createDescriptorSet(uniformData);
     }
 
@@ -271,6 +275,21 @@ public:
 
         return *this;
     }
+
+    VulkanCommandBuffer& copyBufferToImage(VulkanBufferI& src, VulkanImageI& dst, VkBufferImageCopy& region){
+        vkCmdCopyBufferToImage(commandBuffer, src, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        return *this;
+    }
+
+    VulkanCommandBuffer& setBarrier(VkImageMemoryBarrier& barrier, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0){ //TODO add default values
+        
+
+
+        vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        return *this;
+    };
 
     VulkanCommandBuffer& end(){
 

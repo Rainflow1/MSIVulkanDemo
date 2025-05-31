@@ -50,7 +50,9 @@ public:
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
 
-            createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&VulkanDebugMessenger::getDebugMessangerCreateInfo());
+            VkDebugUtilsMessengerCreateInfoEXT temp = VulkanDebugMessenger::getDebugMessangerCreateInfo();
+
+            createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&temp);
             
         }else{
             createInfo.enabledLayerCount = 0;

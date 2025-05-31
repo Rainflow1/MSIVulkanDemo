@@ -168,6 +168,13 @@ public:
         throw std::runtime_error("failed to find supported format!");
     }
 
+    VkPhysicalDeviceProperties getProperties(){
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+        return properties;
+    }
+
 private:
     bool isDeviceSuitable(VkPhysicalDevice device) {
         VkPhysicalDeviceProperties properties;
@@ -179,7 +186,10 @@ private:
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
-        return properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && findQueueFamilies(device).isComplete() && swapChainAdequate;
+        VkPhysicalDeviceFeatures supportedFeatures;
+        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+        return properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && findQueueFamilies(device).isComplete() && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
     void printDeviceInfo(){

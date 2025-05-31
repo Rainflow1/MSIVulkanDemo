@@ -23,11 +23,9 @@ private:
     uint32_t id;
 
 protected:
-    template<typename T>
+    template<class T>
     typename std::enable_if<std::is_base_of<Component, T>::value, T&>::type
-    getComponent(){
-        return owner.lock()->getComponent<T>();
-    }
+    getComponent();
 
 public:
 

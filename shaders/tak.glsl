@@ -37,7 +37,7 @@ layout(location = 2) in vec3 fragPos;
 
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 1) uniform _{
+layout(binding = 2) uniform _{
     vec3 color;
     vec3 lightPos;
 };

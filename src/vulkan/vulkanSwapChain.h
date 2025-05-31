@@ -198,7 +198,7 @@ private:
 
         imageViews.clear();
         for(auto swapChainImage : swapChainImages){
-            auto tempPtr = std::make_shared<VulkanImage>(device, swapChainImage, getImageFormat());
+            auto tempPtr = std::shared_ptr<VulkanImage>(new VulkanImage(device, swapChainImage, getImageFormat()));
             imageViews.push_back(tempPtr->createImageView());
         }
 

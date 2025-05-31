@@ -11,6 +11,7 @@
 #include "vulkanComponent.h"
 #include "vulkanMemory.h"
 #include "vulkanUniform.h"
+#include "vulkanTextureSampler.h"
 
 #include <iostream>
 #include <set>
@@ -32,6 +33,7 @@ private:
     std::weak_ptr<VulkanSwapChain> swapChain;
     std::weak_ptr<VulkanCommandPool> commandPool;
     std::weak_ptr<VulkanMemoryManager> memoryManager;
+    std::vector<std::weak_ptr<VulkanTextureSampler>> samplers;
     std::vector<std::weak_ptr<VulkanDescriptorPool>> descriptorPools;
     std::vector<std::weak_ptr<VulkanSemaphore>> semaphores;
     std::vector<std::weak_ptr<VulkanFence>> fences;
@@ -63,6 +65,7 @@ public:
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
         VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
         createInfo.pEnabledFeatures = &deviceFeatures;
 
         if (vkCreateDevice(*physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
@@ -136,6 +139,14 @@ public:
 
     std::shared_ptr<VulkanMemoryManager> getMemoryManager(){
         return createMemoryManager();
+    }
+
+    std::shared_ptr<VulkanTextureSampler> createTextureSampler(){ //TODO change to get as samplers can be global
+        auto ts = std::make_shared<VulkanTextureSampler>(shared_from_this()); //TODO pool this
+
+        samplers.push_back(ts);
+
+        return ts;
     }
 
     std::shared_ptr<VulkanSemaphore> createSemaphore(){ 

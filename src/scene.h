@@ -1,16 +1,14 @@
 #pragma once
 
-#include <entt/entity/registry.hpp>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "component.h"
 #include "resourceManager.h"
 #include "vulkan/vulkanCore.h"
 #include "input.h"
+#include "gameobject.h"
 
 #include <iostream>
 #include <vector>
@@ -18,57 +16,6 @@
 #include <typeinfo>
 
 namespace MSIVulkanDemo{
-
-
-class GameObject : public std::enable_shared_from_this<GameObject>{
-
-private:
-    std::shared_ptr<entt::registry> entityRegistry;
-    const entt::entity entityID;
-
-public:
-    GameObject(std::shared_ptr<entt::registry> entityRegistry): entityRegistry(entityRegistry), entityID(entityRegistry->create()){
-        
-    }
-
-    ~GameObject(){
-        if(entityRegistry && entityRegistry->valid(entityID))
-            entityRegistry->destroy(entityID);
-    }
-
-    GameObject(GameObject& other): entityRegistry(other.entityRegistry), entityID(other.entityID){
-        
-    }
-
-    GameObject(GameObject&& other): entityRegistry(other.entityRegistry), entityID(other.entityID){
-        other.entityRegistry = nullptr;
-    }
-
-    template<typename T, typename... Args>
-    typename std::enable_if<std::is_base_of<Component, T>::value>::type
-    addComponent(Args&... args){
-        Component& component = static_cast<Component&>(entityRegistry->emplace<T>(entityID, args...));
-        component.owner = shared_from_this();
-    }
-
-    template<typename T>
-    typename std::enable_if<std::is_base_of<Component, T>::value, T&>::type
-    getComponent(){
-
-        if(!entityRegistry->all_of<T>(entityID)){
-            throw std::runtime_error(std::string("Entity does not have component: ") + typeid(T).name());
-        }
-
-        return entityRegistry->get<T>(entityID);
-    }
-
-    template<typename T, typename... Args>
-    typename std::enable_if<std::is_base_of<Component, T>::value>::type
-    removeComponent(){
-        entityRegistry->remove<T>(entityID);
-    }
-
-};
 
 
 class Scene : public VulkanRendererI, public VulkanRenderGraphBuilderI{
@@ -82,6 +29,8 @@ private:
     std::shared_ptr<VulkanRenderPass> mainRenderpass;
 
     GameObject* mainCamera;
+
+    std::shared_ptr<Texture> defaultTexture;
 
 protected:
     ResourceManager resourceManager;
@@ -160,7 +109,9 @@ public:
                 transform.getRotationAngle(), transform.getRotationVec()), transform.getScale()
             );
 
-            renderGraph->registerDescriptorSet(&entityView.get<MaterialComponent>(entity));
+            if(!entityView.get<MaterialComponent>(entity).getDescriptorSet().size()){
+                renderGraph->registerDescriptorSet(&entityView.get<MaterialComponent>(entity), {defaultTexture->getTextureView(), defaultTexture->getTextureSampler()});
+            }
 
             commandBuffer
             .bind(entityView.get<MaterialComponent>(entity).getGraphicsPipeline())
@@ -178,20 +129,36 @@ public:
 
         }
 
+        if(getGameObject("Skybox")){
+            GameObject* skybox = getGameObject("Skybox");
+
+            if(!skybox->getComponent<MaterialComponent>().getDescriptorSet().size()){
+                renderGraph->registerDescriptorSet(&skybox->getComponent<MaterialComponent>(), {defaultTexture->getTextureView(), defaultTexture->getTextureSampler()});
+            }
+
+            glm::mat4 stationaryView = glm::mat4(glm::mat3(view));  
+
+            commandBuffer
+            .bind(skybox->getComponent<MaterialComponent>().getGraphicsPipeline())
+            .bind(skybox->getComponent<ModelComponent>().getBuffers())
+            .bind(skybox->getComponent<MaterialComponent>().getDescriptorSet())
+            .setUniform(skybox->getComponent<MaterialComponent>().uniform("proj", proj))
+            .setUniform(skybox->getComponent<MaterialComponent>().uniform("view", stationaryView));
+
+            commandBuffer.draw(skybox->getComponent<ModelComponent>().getCount());
+        }
+
     }
 
     void loadScene(Vulkan& context){
         resourceManager.addDependency<ShaderProgram>(mainRenderpass);
+        resourceManager.addDependency<ShaderProgram>(renderGraph);
         resourceManager.addDependency<Mesh>(context.getMemoryManager());
+        resourceManager.addDependency<Texture>(context.getMemoryManager());
+
+        defaultTexture = resourceManager.getResource<Texture>("./textures/NoTexture.jpg");
 
         setup();
-/*
-        auto entityView = entityRegistry->view<MaterialComponent>();
-
-        for(auto [entity, mat] : entityView.each()){
-            mat.setDescriptorSet(renderGraph->registerDescriptorSet(mat.getGraphicsPipeline()->getUniformData())); // TODO make that indepented of scene/renderGraph load order
-        }
-*/
     }
 
     void unloadScene(){
@@ -239,6 +206,21 @@ public:
         );
         obj->addComponent<RenderComponent>();
 
+
+
+        GameObject* skybox = spawnGameObject("Skybox");
+        auto& mat = skybox->addComponent<MaterialComponent>(
+            resourceManager.getResource<ShaderProgram>("./shaders/skybox.glsl")
+        );
+        mat.setTexture("Skybox", resourceManager.getResource<Texture>({ //TODO
+            "./textures/skybox/right.jpg",
+            "./textures/skybox/left.jpg",
+            "./textures/skybox/top.jpg",
+            "./textures/skybox/bottom.jpg",
+            "./textures/skybox/front.jpg",
+            "./textures/skybox/back.jpg"
+        }));
+        skybox->addComponent<ModelComponent>(resourceManager.getResource<Mesh>("./models/cubemap.glb"));
     }
 
     void update(float deltaTime, Input& input){

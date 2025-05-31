@@ -149,7 +149,7 @@ public:
 
     template<class... D>
     typename std::enable_if<(std::is_base_of<Dependency, D>::value && ...)>::type
-    addRenderPass(std::string name, D&... args){
+    addRenderPass(const std::string name, const D&... args){
         std::array<std::shared_ptr<Dependency>, sizeof...(D)> dependencies = {{std::move(std::shared_ptr<Dependency>(args.clone())) ...}};
 
         std::shared_ptr<RenderGraphNode> node = std::make_shared<RenderGraphNode>(shared_from_this(), swapChain, name);
@@ -232,14 +232,20 @@ public:
         return sets;
     }
 */
-    void registerDescriptorSet(VulkanDescriptorSetOwner* owner){
+    void registerDescriptorSet(VulkanDescriptorSetOwner* owner, std::pair<VkImageView, VkSampler> defaultTex){
         std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
         if(owner->getDescriptorSet().size() > 0){
             return;
         }
+
+        VulkanUniformData uniformData = owner->getGraphicsPipeline()->getUniformData();
+
+        uniformData.setDefaultTexture(defaultTex.first, defaultTex.second);
+
         for(auto buffer : commandBuffers){
-            sets.push_back(buffer->createDescriptorSet(owner->getGraphicsPipeline()->getUniformData()));
+            sets.push_back(buffer->createDescriptorSet(uniformData));
         }
+
         owner->setDescriptorSet(sets);
     }
 
@@ -335,10 +341,12 @@ public:
 
             std::shared_ptr<VulkanImage> depthImage = node.getSwapChain()->getDevice()->getMemoryManager()->createImage<VulkanImage>(
                 std::pair<uint32_t, uint32_t>({node.getSwapChain()->getSwapChainExtent().width, node.getSwapChain()->getSwapChainExtent().height}),
-                depthFormat, 
-                VK_IMAGE_TILING_OPTIMAL, 
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                VulkanImage::constructParameters({
+                    .format = depthFormat, 
+                    .tiling = VK_IMAGE_TILING_OPTIMAL, 
+                    .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
+                    .properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                })
             );
             
             depthView = depthImage->createImageView(VK_IMAGE_ASPECT_DEPTH_BIT);

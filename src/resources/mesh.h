@@ -30,7 +30,7 @@ private:
     std::unique_ptr<VulkanVertexData> vertexData;
 
 public:
-    Mesh(std::string path): Resource(path){
+    Mesh(std::string path){
 
         tinygltf::Model model;
         tinygltf::TinyGLTF loader;
@@ -55,8 +55,8 @@ public:
         auto& mesh = model.meshes[0]; //TODO support more meshes
         auto& primitive = mesh.primitives[0]; //TODO support more primitives
 
-        std::cout << mesh.primitives.size() << std::endl;
-        std::cout << model.meshes.size() << std::endl;
+        //std::cout << mesh.primitives.size() << std::endl;
+        //std::cout << model.meshes.size() << std::endl;
 
         std::vector<std::tuple<std::string, VkFormat, size_t>> attributes;
         std::vector<std::vector<float>> attributesData;
@@ -126,11 +126,7 @@ public:
             }
             indicesData.push_back(val);
         }
-/*
-        std::vector<uint16_t> indicesTestData(indicesBufferView.byteLength/2);
 
-        std::memcpy(indicesTestData.data(), indicesBuffer.data.data() + indicesBufferView.byteOffset, indicesBufferView.byteLength);
-*/
         vertexData->addIndices(indicesData);
     }
 
@@ -151,30 +147,6 @@ public:
     void loadDependency(std::vector<std::any> dependencies){
         memoryManager = std::any_cast<std::shared_ptr<VulkanMemoryManager>>(dependencies[0]);
 
-/*
-        VulkanVertexData tak({{"pos", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"col", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}, {"normal", VK_FORMAT_R32G32B32_SFLOAT, sizeof(glm::vec3)}});
-
-        tak.append({
-            {-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, -1.0f, -1.0f, -1.0f},
-            {0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f},
-            {0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, -1.0f},
-            {-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f},
-
-            {-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, -1.0f, -1.0f, 1.0f},
-            {0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f},
-            {0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f},
-            {-0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f}
-        });
-
-        tak.addIndices({
-            2, 1, 0, 0, 3, 2,  
-            4, 5, 6, 6, 7, 4,
-            0, 1, 4, 1, 5, 4,
-            1, 2, 5, 2, 6, 5,
-            2, 3, 6, 3, 7, 6,
-            3, 0, 7, 0, 4, 7
-        });
-*/
         vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memoryManager, *vertexData));
         indexBuffer = std::shared_ptr<VulkanIndexBuffer>(new VulkanIndexBuffer(memoryManager, *vertexData));
 

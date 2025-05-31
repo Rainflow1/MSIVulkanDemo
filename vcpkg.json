@@ -13,8 +13,9 @@
     },
     "shaderc",
     "spirv-reflect",
+    "tinygltf",
     "vulkan",
     "vulkan-memory-allocator",
-    "tinygltf"
+    "stb"
   ]
 }

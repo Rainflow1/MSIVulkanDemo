@@ -78,7 +78,7 @@ public:
         return type;
     }
 
-    VulkanVertexData getVertexData(){
+    VulkanVertexData getVertexData(){ // TODO support location
         
         uint32_t var_count = 0;
         if(spvReflectEnumerateInputVariables(&module, &var_count, NULL) != SPV_REFLECT_RESULT_SUCCESS){
@@ -113,27 +113,39 @@ public:
             throw std::runtime_error("Cannot fetch input vars");
         }
 
-        std::map<uint32_t ,std::vector<std::pair<std::string, size_t>>> attributes;
+        std::vector<VulkanUniformData::bindingBlock> blocks; 
 
         for(uint32_t i = 0; i < varCount; i++){
-            // TODO support sets
 
             for(uint32_t j = 0; j < inputVars[i]->binding_count; j++){
                 auto binding = inputVars[i]->bindings[j];
-                std::vector<std::pair<std::string, size_t>> blockMembers;
+
+                VulkanUniformData::bindingBlock block;
+                block.set = inputVars[i]->set;
+                block.binding = binding->binding;
+                block.type = static_cast<VkDescriptorType>(binding->descriptor_type);
+
+                if(block.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER){
+                    block.attribs.push_back({.binding = block.binding, .name = binding->name, .size = 0});
+                }
 
                 for(uint32_t k = 0; k < binding->block.member_count; k++){
                     auto member = binding->block.members[k];
-                    blockMembers.push_back({std::string(member.name), member.padded_size});
+
+                    VulkanUniformData::attribute attrib; 
+                    attrib.name = member.name;
+                    attrib.size = member.padded_size;
+                    attrib.binding = block.binding;
+
+                    block.attribs.push_back(attrib);
                 }
 
-                attributes.insert({binding->binding, blockMembers});
+                blocks.push_back(block);
             }
 
-            
         }
 
-        return new VulkanUniformData(attributes);
+        return new VulkanUniformData(blocks);
     }
 
 private:

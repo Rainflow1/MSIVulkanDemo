@@ -17,57 +17,64 @@ namespace MSIVulkanDemo{
 class VulkanUniformLayout;
 
 class VulkanUniformData{
+public:
+    typedef uint32_t binding_id;
+
+    struct attribute{
+        binding_id binding;
+        std::string name;
+        size_t size;
+    };
+
+    struct bindingBlock{
+        binding_id binding;
+        uint32_t set;
+        std::vector<attribute> attribs;
+        VkDescriptorType type;
+    };
+
+
 private:
-    std::map<std::string, std::pair<uint32_t, uint32_t>> attributes;
-    std::vector<std::string> keys;
-    size_t size = 0;
-    size_t count = 0;
-    size_t bindingCount = 0;
-    uint32_t maxBinding = 0;
+    std::map<std::string, attribute> attributes;
+    std::map<binding_id, bindingBlock> blocks;
+
+    size_t descriptorSize = 0;
     std::weak_ptr<VulkanUniformLayout> uniformLayout;
 
     const size_t minOffset = 64; // TODO get from device
 
+    VkImageView defaultImageView;
+    VkSampler defaultSampler;
+
 public:
     VulkanUniformData(std::initializer_list<std::initializer_list<std::pair<std::string, size_t>>> attribs){ // FIXME
-
+        throw std::runtime_error("FIX ME");
         for(auto block : attribs){
             for(auto pair : block){
                 size_t sizeTemp = pair.second;
                 if(sizeTemp < minOffset){
                     sizeTemp = minOffset;
                 }
-
-                attributes.insert({pair.first, {bindingCount, sizeTemp}});
-                count++;
-                size += sizeTemp;
-                keys.push_back(pair.first);
-                maxBinding = bindingCount;
+                descriptorSize += sizeTemp;
             }
-            bindingCount++;
         }
     }
 
-    VulkanUniformData(std::map<uint32_t, std::vector<std::pair<std::string, size_t>>>& attribs){
+    VulkanUniformData(std::vector<bindingBlock> bindingBlocks){
 
-        for(auto const& [binding, block] : attribs){
-            for(auto pair : block){
-                size_t sizeTemp = pair.second;
-                if(sizeTemp < minOffset){
-                //    sizeTemp = minOffset; TODO add min offset at the end
-                }
-
-                attributes.insert({pair.first, {binding, sizeTemp}});
-                count++;
-                size += sizeTemp;
-                keys.push_back(pair.first);
-                maxBinding = std::max(maxBinding, binding);
+        for(auto const& blk : bindingBlocks){
+            blocks.insert({blk.binding, blk});
+            for(auto attrib : blk.attribs){
+                attributes.insert({attrib.name, attrib});
+                descriptorSize += attrib.size;
             }
-            bindingCount++;
+        }
+        if(descriptorSize%minOffset != 0){
+            descriptorSize += minOffset - descriptorSize%minOffset; // WARN test this
         }
     }
 
-    VulkanUniformData(VulkanUniformData& copy): attributes(copy.attributes), keys(copy.keys), size(copy.size), count(copy.count), bindingCount(copy.bindingCount), uniformLayout(copy.uniformLayout), maxBinding(copy.maxBinding){
+    VulkanUniformData(VulkanUniformData& copy): attributes(copy.attributes), uniformLayout(copy.uniformLayout), blocks(copy.blocks), descriptorSize(copy.descriptorSize), defaultImageView(copy.defaultImageView), defaultSampler(copy.defaultSampler){
 
     }
 
@@ -75,84 +82,130 @@ public:
         
     }
 
-    size_t getSize(){
-        return size;
+    std::vector<bindingBlock> getBindings() const{
+        std::vector<bindingBlock> bindings;
+
+        for(const auto& [key, val] : blocks){
+            bindings.push_back(val);
+        }
+
+        return bindings;
     }
 
-    size_t getSize(int n){
-        std::string key = keys[n];
-        return attributes[key].second;
+    std::vector<bindingBlock> getBindings(VkDescriptorType type) const{
+        std::vector<bindingBlock> bindings;
+
+        for(const auto& [key, val] : blocks){
+            if(val.type == type){
+                bindings.push_back(val);
+            }
+        }
+
+        return bindings;
     }
 
-    std::vector<size_t> getSizes(){
-        std::vector<size_t> sizes(maxBinding+1);
+    std::vector<VkDescriptorType> getBindingsTypes() const{
+        std::vector<VkDescriptorType> types;
+
+        for(const auto& [key, val] : blocks){
+            if(std::find(types.begin(), types.end(), val.type) == types.end()){
+                types.push_back(val.type);
+            }
+        }
+
+        return types;
+    }
+
+    std::vector<attribute> getAttributes() const{
+        std::vector<attribute> attribs;
 
         for(const auto& [key, val] : attributes){
-            sizes[val.first] += 1;
+            attribs.push_back(val);
         }
 
-        return sizes;
+        return attribs;
     }
 
-    uint32_t getCount(){
-        return static_cast<uint32_t>(count);
-    }
+    size_t getOffset(std::string name) const{
 
-    size_t getOffset(uint32_t n){
-        size_t offset = 0;
+        auto& block = blocks.at(attributes.at(name).binding);
 
-        for(uint32_t i = 0; i < n; i++){
-            offset += getSize(i);
+        size_t offset = getOffset(block.binding);
+
+        for(const auto& val : block.attribs){
+            if(val.name == name){
+                return offset;
+            }
+            offset += val.size;
         }
-
         return offset;
     }
 
-    size_t getOffset(std::string key){
+    size_t getOffset(binding_id binding) const{
+        size_t offset = 0;
 
-        if(!contains(key)){
-            throw std::runtime_error("VulkanUniformData.getOffset() - Key doesnt exists");
+        for(const auto& [key, val] : blocks){
+            if(key == binding){
+                return offset;
+            }
+            for(const auto& attrib : val.attribs){
+                offset += attrib.size;
+            }
         }
-
-        return getOffset(std::find(keys.begin(), keys.end(), key) - keys.begin());
+        return offset;
     }
 
-    bool contains(std::string key){
-        return std::find(keys.begin(), keys.end(), key) != keys.end();
+    size_t getSize() const{
+        return descriptorSize;
     }
 
-    uint32_t getIndex(uint32_t n, uint32_t k){
-        std::vector<size_t> sizes = getSizes();
+    size_t getSize(binding_id binding) const{
+        size_t size = 0;
 
-        uint32_t sum = 0;
-
-        for(int i = 0; i < n; i++){
-            sum + sizes[i];
+        for(const auto& attrib : blocks.at(binding).attribs){
+            size += attrib.size;
         }
-        return sum + k;
+        
+        return size;
+    }
+
+    bool contains(std::string key) const{
+        return attributes.count(key) > 0;
     }
 
     VulkanUniformData operator+(VulkanUniformData& other){
         VulkanUniformData newUniformData(*this);
 
-        for(auto key : other.keys){
-            if(!newUniformData.contains(key)){
-                auto val = other.attributes[key];
-                newUniformData.attributes.insert({key, {val.first, val.second}});
-                newUniformData.keys.push_back(key);
-            }
-        }
+        newUniformData.blocks.insert(other.blocks.begin(), other.blocks.end()); // FIXME merge "blocks"
+        newUniformData.attributes.insert(other.attributes.begin(), other.attributes.end());
 
-        newUniformData.size += other.size;
-        newUniformData.count += other.count;
-        newUniformData.bindingCount = std::max(other.bindingCount, newUniformData.bindingCount);
-        newUniformData.maxBinding = std::max(other.maxBinding, newUniformData.maxBinding);
+        newUniformData.descriptorSize = 0;
+
+        for(const auto& [key, attrib] : newUniformData.attributes){
+            newUniformData.descriptorSize += attrib.size;
+        }
+        if(newUniformData.descriptorSize%minOffset != 0){
+            newUniformData.descriptorSize += minOffset - newUniformData.descriptorSize%minOffset; // WARN test this
+        }
 
         return newUniformData;
     }
 
-    std::shared_ptr<VulkanUniformLayout> getUniformLayout(std::shared_ptr<VulkanDeviceI> device){
+    std::shared_ptr<VulkanUniformLayout> getUniformLayout(std::shared_ptr<VulkanDeviceI> device) const{
         return std::make_shared<VulkanUniformLayout>(device, *this); // TODO save to uniformLayout
+    }
+
+    void setDefaultTexture(VkImageView imageView, VkSampler sampler){
+        defaultImageView = imageView;
+        defaultSampler = sampler;
+    }
+
+    VkImageView getDefaultTextureView() const{
+        return defaultImageView;
+    }
+
+    VkSampler getDefaultTextureSampler() const{
+        return defaultSampler;
     }
 
 };
@@ -165,15 +218,15 @@ private:
     VkDescriptorSetLayout descriptorSetLayout = nullptr;
 
 public:
-    VulkanUniformLayout(std::shared_ptr<VulkanDeviceI> device, VulkanUniformData& uniformData): device(device){
+    VulkanUniformLayout(std::shared_ptr<VulkanDeviceI> device, const VulkanUniformData& uniformData): device(device){
 
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-        for(int i = 0; i < uniformData.getSizes().size(); i++){
+        for(const auto& binding : uniformData.getBindings()){
             VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-            uboLayoutBinding.binding = i;
-            uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            uboLayoutBinding.descriptorCount = 1;
+            uboLayoutBinding.binding = binding.binding;
+            uboLayoutBinding.descriptorType = binding.type;
+            uboLayoutBinding.descriptorCount = 1; // TODO add array support
             uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
             uboLayoutBinding.pImmutableSamplers = nullptr;
 
@@ -212,7 +265,6 @@ class VulkanDescriptorPool{
 private:
     VkDescriptorPool descriptorPool = nullptr;
 
-
     std::shared_ptr<VulkanDeviceI> device;
     
     std::vector<std::weak_ptr<VulkanDescriptorSet>> sets;
@@ -232,7 +284,11 @@ public:
         }else{
             VkDescriptorPoolSize poolSize = {};
             poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            poolSize.descriptorCount = 1;
+            poolSize.descriptorCount = 3;
+            poolSizes.push_back(poolSize);
+
+            poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            poolSize.descriptorCount = 3;
             poolSizes.push_back(poolSize);
         }
 
@@ -260,7 +316,7 @@ public:
         return *device;
     }
 
-    std::shared_ptr<VulkanDescriptorSet> getDescriptorSet( VulkanUniformData& uniformData, VulkanBufferI& uniformBuffer, size_t offset){
+    std::shared_ptr<VulkanDescriptorSet> getDescriptorSet(const VulkanUniformData& uniformData, std::shared_ptr<VulkanBufferI> uniformBuffer, size_t offset){
         return std::make_shared<VulkanDescriptorSet>(this, uniformData.getUniformLayout(device), uniformData, uniformBuffer, offset);
     }
 
@@ -273,11 +329,14 @@ private:
     VulkanDescriptorPool* descriptorPool;
     std::shared_ptr<VulkanUniformLayout> layout;
 
+    std::shared_ptr<VulkanBufferI> uniformBuffer;
+    std::map<std::string, std::pair<VkImageView, VkSampler>> textures; 
+
     VkDescriptorSet descriptorSet = nullptr;
     size_t offset;
 
 public:
-    VulkanDescriptorSet(VulkanDescriptorPool* descriptorPool, std::shared_ptr<VulkanUniformLayout> layout, VulkanUniformData& uniformData, VulkanBufferI& uniformBuffer, size_t offset): descriptorPool(descriptorPool), layout(layout), offset(offset){
+    VulkanDescriptorSet(VulkanDescriptorPool* descriptorPool, std::shared_ptr<VulkanUniformLayout> layout, const VulkanUniformData& uniformData, std::shared_ptr<VulkanBufferI> uniformBuffer, size_t offset): descriptorPool(descriptorPool), layout(layout), uniformBuffer(uniformBuffer), offset(offset){
 
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -289,7 +348,7 @@ public:
             throw std::runtime_error("failed to allocate descriptor set!");
         }
 
-        writeDescriptorSet(uniformData, uniformBuffer, offset);
+        writeDescriptorSet(uniformData);
     }
 
     ~VulkanDescriptorSet(){
@@ -304,40 +363,88 @@ public:
         return descriptorSet;
     }
 
-private:
-
-
-void writeDescriptorSet(VulkanUniformData& uniformData, VulkanBufferI& uniformBuffer, size_t offset){
-    // TODO zweryfikuj poprawne działanie i nazwij temp
-    std::vector<VkDescriptorBufferInfo> bufferInfos;
-
-    auto sizes = uniformData.getSizes();
-    int temp = 0;
-
-    for(uint32_t j = 0; j < sizes.size(); j++){
-        VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = uniformBuffer;
-        bufferInfo.offset = offset + uniformData.getOffset(temp);
-        bufferInfo.range = uniformData.getOffset(temp+sizes[j]) - uniformData.getOffset(temp);
-        bufferInfos.push_back(bufferInfo);
-        temp += sizes[j];
+    void addTexture(std::string name, VkImageView view, VkSampler sampler){
+        textures.insert({name, {view, sampler}});
     }
 
-    VkWriteDescriptorSet descriptorWrite = {};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = descriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
+    void writeDescriptorSet(const VulkanUniformData& uniformData){
+        
+        std::vector<VkWriteDescriptorSet> sets;
 
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrite.descriptorCount = static_cast<uint32_t>(bufferInfos.size());
+        std::vector<VkDescriptorBufferInfo> bufferInfos;
+        std::vector<VkDescriptorImageInfo> imageInfos;
 
-    descriptorWrite.pBufferInfo = bufferInfos.data();
-    descriptorWrite.pImageInfo = nullptr; // Optional
-    descriptorWrite.pTexelBufferView = nullptr; // Optional
+        uint32_t counter = 0;
 
-    vkUpdateDescriptorSets(descriptorPool->getDevice(), 1, &descriptorWrite, 0, nullptr);
-}
+        for(const auto& type : uniformData.getBindingsTypes()){
+
+            VkWriteDescriptorSet descriptorWrite = {};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = descriptorSet;
+            descriptorWrite.dstBinding = counter;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = type;
+
+            counter++;
+
+            switch (type){
+            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+
+                for(const auto& binding : uniformData.getBindings(type)){
+                    VkDescriptorBufferInfo bufferInfo = {};
+                    bufferInfo.buffer = *uniformBuffer;
+                    bufferInfo.offset = offset + uniformData.getOffset(binding.binding);
+                    bufferInfo.range = uniformData.getSize(binding.binding);
+                    bufferInfos.push_back(bufferInfo);
+                }
+
+                
+                descriptorWrite.descriptorCount = static_cast<uint32_t>(bufferInfos.size());
+                descriptorWrite.pBufferInfo = bufferInfos.data();
+
+                break;
+
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+
+                for(const auto& binding : uniformData.getBindings(type)){
+
+                    auto& name = binding.attribs[0].name;
+                    VkSampler sampler;
+                    VkImageView view;
+
+                    if(textures.contains(name)){
+                        sampler = textures.at(name).second;
+                        view = textures.at(name).first;
+                    }else{
+                        sampler = uniformData.getDefaultTextureSampler();
+                        view = uniformData.getDefaultTextureView();
+                    }
+
+                    VkDescriptorImageInfo imageInfo = {};
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    imageInfo.imageView = view;
+                    imageInfo.sampler = sampler;
+                    imageInfos.push_back(imageInfo);
+                }
+
+                descriptorWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+                descriptorWrite.pImageInfo = imageInfos.data();
+
+                break;
+
+            default:
+                std::cout << "Unsupported descriptor type" << std::endl;
+                continue;
+            }
+
+            sets.push_back(descriptorWrite);
+        }
+
+        vkUpdateDescriptorSets(descriptorPool->getDevice(), sets.size(), sets.data(), 0, nullptr);
+    }
+
+private:
+
 
 
 };
