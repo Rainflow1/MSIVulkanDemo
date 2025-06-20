@@ -34,7 +34,7 @@ private:
 
 protected:
     
-    std::vector<std::shared_ptr<VulkanImageView>> imageViews;
+    std::map<std::string, std::shared_ptr<VulkanImageView>> imageViews;
 
     std::vector<VkAttachmentDescription> attachments;
     std::vector<VkAttachmentReference> attachmentRefs;
@@ -105,7 +105,9 @@ public:
             std::vector<std::shared_ptr<VulkanImageView>> views;
             views.push_back(image);
 
-            views.insert(views.end(), imageViews.begin(), imageViews.end());
+            std::transform(imageViews.begin(), imageViews.end(), std::back_inserter(views), [](auto &kv){ return kv.second;});
+
+            //views.insert(views.end(), imageViews.begin(), imageViews.end());
 
             framebuffers.push_back(std::shared_ptr<VulkanFramebuffer>(new VulkanFramebuffer(shared_from_this(), views)));
         }
@@ -156,8 +158,8 @@ public:
         attachmentRefs.push_back(attachmentRef);
     }
 
-    void addImageView(std::shared_ptr<VulkanImageView> imageView){
-        imageViews.push_back(imageView);
+    void addImageView(std::string name, std::shared_ptr<VulkanImageView> imageView){
+        imageViews.insert({name, imageView});
     }
 
     void addDependencyMask(VkPipelineStageFlags srcStageMask, VkPipelineStageFlags srcAccessMask, VkPipelineStageFlags dstStageMask, VkPipelineStageFlags dstAccessMask){
@@ -173,7 +175,7 @@ public:
 
     void recreateFramebuffers(VulkanSwapChainI& swapChain){
 
-        for(auto view : imageViews){
+        for(auto [name, view] : imageViews){
             view->resize(std::pair<uint32_t, uint32_t>(swapChain.getSwapChainExtent().width, swapChain.getSwapChainExtent().height));
         }
 
@@ -182,7 +184,9 @@ public:
             std::vector<std::shared_ptr<VulkanImageView>> views;
             views.push_back(image);
 
-            views.insert(views.end(), imageViews.begin(), imageViews.end());
+            std::transform(imageViews.begin(), imageViews.end(), std::back_inserter(views), [](auto &kv){ return kv.second;});
+
+            //views.insert(views.end(), imageViews.begin(), imageViews.end());
             framebuffers.push_back(std::shared_ptr<VulkanFramebuffer>(new VulkanFramebuffer(shared_from_this(), views)));
         }
     }

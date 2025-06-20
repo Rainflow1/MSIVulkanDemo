@@ -6,16 +6,19 @@
     {
       "name": "imgui",
       "features": [
+        "docking-experimental",
         "freetype",
         "glfw-binding",
         "vulkan-binding"
       ]
     },
+    "nativefiledialog-extended",
+    "nlohmann-json",
     "shaderc",
     "spirv-reflect",
+    "stb",
     "tinygltf",
     "vulkan",
-    "vulkan-memory-allocator",
-    "stb"
+    "vulkan-memory-allocator"
   ]
 }

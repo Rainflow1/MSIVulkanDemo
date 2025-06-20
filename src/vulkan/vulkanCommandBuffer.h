@@ -229,6 +229,15 @@ public:
         return *this;
     }
 
+    VulkanCommandBuffer& setUniform(std::vector<std::pair<size_t, std::vector<float>>> uniforms){
+
+        for(auto& uniform : uniforms){
+            setUniform(uniform);
+        }
+
+        return *this;
+    }
+
     VulkanCommandBuffer& setUniform(std::pair<size_t, std::vector<float>> val){
 
         if(!bindedGraphicsPipeline){

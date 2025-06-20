@@ -12,16 +12,15 @@ class VulkanVertexData{
 private:
 
     std::vector<float> vertexData;
-    std::map<std::string, VkVertexInputAttributeDescription> attributeDescriptions;
+    std::map<uint32_t, VkVertexInputAttributeDescription> attributeDescriptions;
     std::vector<uint32_t> indexData;
 
-    uint32_t attributeCount = 0;
     uint32_t attributeStride = 0;
 
     uint32_t vertexCount = 0;
 
 public:
-    VulkanVertexData(std::initializer_list<std::tuple<std::string, VkFormat, size_t>> attributes){
+    VulkanVertexData(std::initializer_list<std::tuple<std::string, VkFormat, size_t>> attributes){ //FIXME
 
         for(auto tuple : attributes){
             VkFormat format = std::get<1>(tuple);
@@ -29,32 +28,30 @@ public:
             VkVertexInputAttributeDescription attributeDescription;
 
             attributeDescription.binding = 0;
-            attributeDescription.location = attributeCount;
+            //attributeDescription.location = attributeCount;
             attributeDescription.format = format;
             attributeDescription.offset = attributeStride;
 
-            attributeCount += 1;
             attributeStride += static_cast<uint32_t>(std::get<2>(tuple));
-            attributeDescriptions.insert(std::pair(std::get<0>(tuple), attributeDescription));
+            //attributeDescriptions.insert(std::pair(std::get<0>(tuple), attributeDescription));
         }
 
     }
 
-    VulkanVertexData(std::vector<std::tuple<std::string, VkFormat, size_t>>& attributes){
+    VulkanVertexData(std::map<uint32_t, std::pair<VkFormat, size_t>>& attributes){
 
-        for(auto tuple : attributes){
-            VkFormat format = std::get<1>(tuple);
+        for(const auto& [location, value] : attributes){
+            VkFormat format = value.first;
 
             VkVertexInputAttributeDescription attributeDescription;
 
             attributeDescription.binding = 0;
-            attributeDescription.location = attributeCount;
+            attributeDescription.location = location;
             attributeDescription.format = format;
             attributeDescription.offset = attributeStride;
 
-            attributeCount += 1;
-            attributeStride += static_cast<uint32_t>(std::get<2>(tuple));
-            attributeDescriptions.insert(std::pair(std::get<0>(tuple), attributeDescription));
+            attributeStride += static_cast<uint32_t>(value.second);
+            attributeDescriptions.insert(std::pair(location, attributeDescription));
         }
 
     }

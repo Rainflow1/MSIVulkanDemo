@@ -11,14 +11,21 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 #include <iostream>
+#include <fstream>
 
 #include "vulkan/vulkanCore.h"
 #include "ImGuiInterface.h"
 #include "scene.h"
 #include "input.h"
+#include "fileDialog.h"
 
 namespace MSIVulkanDemo{
+
+
 
 class App{
 
@@ -37,6 +44,9 @@ private:
 
     std::chrono::steady_clock::time_point previousTime = std::chrono::high_resolution_clock::now();
     const std::chrono::steady_clock::time_point startTime = std::chrono::high_resolution_clock::now();
+    uint32_t FPS = 0;
+
+    std::unique_ptr<Scene> scene;
 
 public:
     App(){
@@ -65,6 +75,8 @@ private:
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetKeyCallback(window, inputKeyCallback);
         glfwSetCursorPosCallback(window, cursorPositionCallback);
+
+        FileDialog::fileDialog(window);
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -88,8 +100,10 @@ private:
 
             if(app->guiMode){
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
             }else{
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
             }
         }
 
@@ -100,7 +114,7 @@ private:
             std::string keyName;
 
             if(keyNameChar){
-                std::cout << keyNameChar << std::endl;
+                //std::cout << keyNameChar << std::endl;
                 keyName = std::string(keyNameChar);
             }else{
                 switch(key){
@@ -162,18 +176,22 @@ private:
         
         if(cumulativeTime >= 1.0f){
             cumulativeTime = 0.0f;
-            std::cout << frames << ", " << totalFrames/totalTime << ", " << deltaTime << std::endl;
+            FPS = frames;
             frames = 0;
         }
     }
 
+    void loadScene(){
+        scene = std::unique_ptr<Scene>(new DefaultScene());
+        scene->loadGui(imgui);
+        
+        vulkan->loadRenderGraph(*scene);
+        scene->loadScene(*vulkan);
+    }
+
     void mainLoop(){
 
-        SimpleScene scene;
-        scene.loadGui(imgui);
-        
-        vulkan->loadRenderGraph(scene);
-        scene.loadScene(*vulkan);
+        loadScene();
 
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
@@ -181,7 +199,7 @@ private:
             auto currentTime = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
             
-            scene.updateScene(deltaTime, inputMap);
+            scene->updateScene(deltaTime, inputMap);
             inputMap.update();
             
             fpsCalc(currentTime, startTime, deltaTime);
@@ -196,13 +214,50 @@ private:
                 windowResized = false;
             }
 
+            menuBar();
+
             vulkan->drawFrame();
 
         }
         vulkan->waitIdle();
     }
 
+    void menuBar(){
+        if(ImGui::BeginMainMenuBar()){
+
+            if(guiMode){
+                ImGui::Text(std::string("GUI Mode [TAB]").c_str());
+            }else{
+                ImGui::Text(std::string("Camera Mode [TAB]").c_str());
+            }
+
+            ImGui::Text((std::to_string(FPS) + " fps").c_str());
+
+            if (ImGui::BeginMenu("Scene")){
+                if (ImGui::MenuItem("Open scene", "Ctrl+O")){
+                    std::string filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                    if(!filePath.empty()){
+                        std::ifstream inputFile(filePath);
+                        scene->loadFromJson(json::parse(inputFile)["scene"]);
+                    }
+                }
+
+                if (ImGui::MenuItem("Save scene", "Ctrl+S")){
+                    std::string filePath = std::filesystem::relative(FileDialog::fileDialog().savePath("scene.json")).string();
+                    if(!filePath.empty()){
+                        std::ofstream outputFile(filePath);
+                        outputFile << std::setw(2) << json({{"scene", scene->saveToJson()}});
+                    }
+                }
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMainMenuBar();
+        }
+    }
+
     void cleanup(){
+        FileDialog::fileDialog().clear();
         glfwDestroyWindow(window);
         glfwTerminate();
     }
@@ -214,7 +269,10 @@ private:
 /*
 TODO
 
- - Image allocation with vma
+ -shadowmap
+ -shadery
+ -ladowanie scen
+ -fixy
  
 
 */

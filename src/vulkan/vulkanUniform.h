@@ -24,6 +24,7 @@ public:
         binding_id binding;
         std::string name;
         size_t size;
+        uint32_t componentCount;
     };
 
     struct bindingBlock{
@@ -42,9 +43,6 @@ private:
     std::weak_ptr<VulkanUniformLayout> uniformLayout;
 
     const size_t minOffset = 64; // TODO get from device
-
-    VkImageView defaultImageView;
-    VkSampler defaultSampler;
 
 public:
     VulkanUniformData(std::initializer_list<std::initializer_list<std::pair<std::string, size_t>>> attribs){ // FIXME
@@ -74,7 +72,7 @@ public:
         }
     }
 
-    VulkanUniformData(VulkanUniformData& copy): attributes(copy.attributes), uniformLayout(copy.uniformLayout), blocks(copy.blocks), descriptorSize(copy.descriptorSize), defaultImageView(copy.defaultImageView), defaultSampler(copy.defaultSampler){
+    VulkanUniformData(VulkanUniformData& copy): attributes(copy.attributes), uniformLayout(copy.uniformLayout), blocks(copy.blocks), descriptorSize(copy.descriptorSize){
 
     }
 
@@ -124,6 +122,10 @@ public:
         }
 
         return attribs;
+    }
+
+    attribute getAttribute(std::string name) const{
+        return attributes.at(name);
     }
 
     size_t getOffset(std::string name) const{
@@ -193,19 +195,6 @@ public:
 
     std::shared_ptr<VulkanUniformLayout> getUniformLayout(std::shared_ptr<VulkanDeviceI> device) const{
         return std::make_shared<VulkanUniformLayout>(device, *this); // TODO save to uniformLayout
-    }
-
-    void setDefaultTexture(VkImageView imageView, VkSampler sampler){
-        defaultImageView = imageView;
-        defaultSampler = sampler;
-    }
-
-    VkImageView getDefaultTextureView() const{
-        return defaultImageView;
-    }
-
-    VkSampler getDefaultTextureSampler() const{
-        return defaultSampler;
     }
 
 };
@@ -317,7 +306,7 @@ public:
     }
 
     std::shared_ptr<VulkanDescriptorSet> getDescriptorSet(const VulkanUniformData& uniformData, std::shared_ptr<VulkanBufferI> uniformBuffer, size_t offset){
-        return std::make_shared<VulkanDescriptorSet>(this, uniformData.getUniformLayout(device), uniformData, uniformBuffer, offset);
+        return std::make_shared<VulkanDescriptorSet>(this, uniformData.getUniformLayout(device), uniformBuffer, offset);
     }
 
 };
@@ -330,13 +319,15 @@ private:
     std::shared_ptr<VulkanUniformLayout> layout;
 
     std::shared_ptr<VulkanBufferI> uniformBuffer;
-    std::map<std::string, std::pair<VkImageView, VkSampler>> textures; 
+    std::map<std::string, std::pair<VkImageView, VkSampler>> textures;
+    VkImageView defaultImageView;
+    VkSampler defaultSampler;
 
     VkDescriptorSet descriptorSet = nullptr;
     size_t offset;
 
 public:
-    VulkanDescriptorSet(VulkanDescriptorPool* descriptorPool, std::shared_ptr<VulkanUniformLayout> layout, const VulkanUniformData& uniformData, std::shared_ptr<VulkanBufferI> uniformBuffer, size_t offset): descriptorPool(descriptorPool), layout(layout), uniformBuffer(uniformBuffer), offset(offset){
+    VulkanDescriptorSet(VulkanDescriptorPool* descriptorPool, std::shared_ptr<VulkanUniformLayout> layout, std::shared_ptr<VulkanBufferI> uniformBuffer, size_t offset): descriptorPool(descriptorPool), layout(layout), uniformBuffer(uniformBuffer), offset(offset){
 
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -347,8 +338,6 @@ public:
         if (vkAllocateDescriptorSets(descriptorPool->getDevice(), &allocInfo, &descriptorSet) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate descriptor set!");
         }
-
-        writeDescriptorSet(uniformData);
     }
 
     ~VulkanDescriptorSet(){
@@ -363,19 +352,24 @@ public:
         return descriptorSet;
     }
 
-    void addTexture(std::string name, VkImageView view, VkSampler sampler){
-        textures.insert({name, {view, sampler}});
+    void setTexture(std::string name, VkImageView view, VkSampler sampler){
+        if(textures.contains(name)){
+            textures.at(name) = {view, sampler};
+        }else{
+            textures.insert({name, {view, sampler}});
+        }
     }
 
     void writeDescriptorSet(const VulkanUniformData& uniformData){
         
         std::vector<VkWriteDescriptorSet> sets;
 
-        std::vector<VkDescriptorBufferInfo> bufferInfos;
-        std::vector<VkDescriptorImageInfo> imageInfos;
+        std::vector<VkDescriptorBufferInfo> bufferInfos(uniformData.getBindings().size());
+        std::vector<VkDescriptorImageInfo> imageInfos(uniformData.getBindings().size());
 
-        uint32_t counter = 0;
-
+        uint32_t imgCounter = 0;
+        uint32_t bufCounter = 0;
+/*
         for(const auto& type : uniformData.getBindingsTypes()){
 
             VkWriteDescriptorSet descriptorWrite = {};
@@ -385,7 +379,6 @@ public:
             descriptorWrite.dstArrayElement = 0;
             descriptorWrite.descriptorType = type;
 
-            counter++;
 
             switch (type){
             case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
@@ -396,6 +389,7 @@ public:
                     bufferInfo.offset = offset + uniformData.getOffset(binding.binding);
                     bufferInfo.range = uniformData.getSize(binding.binding);
                     bufferInfos.push_back(bufferInfo);
+                    counter++;
                 }
 
                 
@@ -416,8 +410,8 @@ public:
                         sampler = textures.at(name).second;
                         view = textures.at(name).first;
                     }else{
-                        sampler = uniformData.getDefaultTextureSampler();
-                        view = uniformData.getDefaultTextureView();
+                        sampler = defaultSampler;
+                        view = defaultImageView;
                     }
 
                     VkDescriptorImageInfo imageInfo = {};
@@ -425,6 +419,7 @@ public:
                     imageInfo.imageView = view;
                     imageInfo.sampler = sampler;
                     imageInfos.push_back(imageInfo);
+                    counter++;
                 }
 
                 descriptorWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
@@ -439,6 +434,70 @@ public:
 
             sets.push_back(descriptorWrite);
         }
+*/
+
+        for(const auto& binding : uniformData.getBindings()){
+
+            VkWriteDescriptorSet descriptorWrite = {};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = descriptorSet;
+            //descriptorWrite.dstBinding = imgCounter + bufCounter;
+            descriptorWrite.dstBinding = binding.binding;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = binding.type;
+
+            auto& name = binding.attribs[0].name;
+            VkDescriptorBufferInfo bufferInfo = {};
+            VkDescriptorImageInfo imageInfo = {};
+
+            switch (binding.type){
+            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                
+                bufferInfo.buffer = *uniformBuffer;
+                bufferInfo.offset = offset + uniformData.getOffset(binding.binding);
+                bufferInfo.range = uniformData.getSize(binding.binding);
+                bufferInfos[bufCounter] = bufferInfo;
+
+                
+                descriptorWrite.descriptorCount = 1;
+                descriptorWrite.pBufferInfo = &bufferInfos[bufCounter];
+
+                bufCounter++;
+                break;
+
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+
+                VkSampler sampler;
+                VkImageView view;
+
+                if(textures.contains(name)){
+                    sampler = textures.at(name).second;
+                    view = textures.at(name).first;
+                }else{
+                    sampler = defaultSampler;
+                    view = defaultImageView;
+                }
+
+                
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                imageInfo.imageView = view;
+                imageInfo.sampler = sampler;
+                imageInfos[imgCounter] = imageInfo;
+
+                descriptorWrite.descriptorCount = 1;
+                descriptorWrite.pImageInfo = &imageInfos[imgCounter];
+
+                imgCounter++;
+                break;
+
+            default:
+                std::cout << "Unsupported descriptor type" << std::endl;
+                continue;
+            }
+
+            sets.push_back(descriptorWrite);
+        }
+
 
         vkUpdateDescriptorSets(descriptorPool->getDevice(), sets.size(), sets.data(), 0, nullptr);
     }

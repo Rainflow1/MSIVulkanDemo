@@ -2,18 +2,17 @@
 
 #ifdef VERTEX
 
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 normal;
-layout(location = 2) out vec3 fragPos; 
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inTexCoords;
 
-layout(location = 1) in vec3 inPosition;
-//layout(location = 1) in vec3 inColor;
-layout(location = 0) in vec3 inNormal;
+layout(location = 0) out vec3 normal;
+layout(location = 1) out vec3 fragPos; 
 
 layout(binding = 0) uniform _{
-    mat4 model;
-    mat4 view;
-    mat4 proj;
+    mat4 _model;
+    mat4 _view;
+    mat4 _proj;
 };
 /*
 layout(set=1, binding = 0) uniform M{mat4 _model;};
@@ -21,19 +20,17 @@ layout(binding = 1) uniform V{mat4 _view;};
 layout(binding = 2) uniform P{mat4 _proj;};
 */
 void main() {
-    gl_Position = proj * view * model * vec4(inPosition, 1.0);
-    fragColor = vec3(1.0, 1.0, 0.0);
-    fragPos = vec3(model * vec4(inPosition, 1.0));
-    normal = mat3(transpose(inverse(model))) * inNormal;
+    gl_Position = _proj * _view * _model * vec4(inPosition, 1.0);
+    fragPos = vec3(_model * vec4(inPosition, 1.0));
+    normal = mat3(transpose(inverse(_model))) * inNormal;
 }
 
 #endif
 
 #ifdef FRAGMENT
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec3 normal;
-layout(location = 2) in vec3 fragPos; 
+layout(location = 0) in vec3 normal;
+layout(location = 1) in vec3 fragPos; 
 
 layout(location = 0) out vec4 outColor;
 

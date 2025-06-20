@@ -104,7 +104,7 @@ public:
         }
     }
 
-    virtual ~VulkanBuffer(){
+    ~VulkanBuffer(){
         if(buffer && allocation){
             vmaDestroyBuffer(*allocator, buffer, allocation);
         }
@@ -142,7 +142,9 @@ public:
 
     }
 
-    ~VulkanStagingBuffer(){}
+    ~VulkanStagingBuffer(){
+
+    }
 
     void bind(VulkanCommandBufferI& commandBuffer) const{
         return;
@@ -156,7 +158,7 @@ private:
     
 public:
     VulkanVertexBuffer(std::shared_ptr<VulkanMemoryManager> allocator, VulkanVertexData& vertices): VulkanBuffer(allocator, vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT), vertexCount(vertices.getVertexCount()){
-
+        
         VulkanStagingBuffer<float> stagingBuffer(allocator, vertices.data(), vertices.size());
         copyBuffer(stagingBuffer, *this, this->getSize());
 
@@ -270,6 +272,10 @@ class VulkanUniformBuffer : public VulkanBuffer{
             
             VkMemoryPropertyFlags memPropFlags;
             vmaGetAllocationMemoryProperties(*allocator, allocation, &memPropFlags);
+
+            if(val.size() <= 0){
+                throw std::runtime_error("Value need to have data");
+            }
 
             if(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT){
 

@@ -27,16 +27,16 @@ public:
         auto& transform = getComponent<TransformComponent>();
 
         if(input.getKey("w")){
-            transform.setPosition(transform.getPosition() + transform.getRotationVec() * deltaTime);
+            transform.setPosition(transform.getPosition() + transform.getRotation() * deltaTime);
         }
         if(input.getKey("s")){
-            transform.setPosition(transform.getPosition() - transform.getRotationVec() * deltaTime);
+            transform.setPosition(transform.getPosition() - transform.getRotation() * deltaTime);
         }
         if(input.getKey("a")){
-            transform.setPosition(transform.getPosition() - glm::normalize(glm::cross(transform.getRotationVec(), {0.0f, 1.0f, 0.0f})) * deltaTime);
+            transform.setPosition(transform.getPosition() - glm::normalize(glm::cross(transform.getRotation(), {0.0f, 1.0f, 0.0f})) * deltaTime);
         }
         if(input.getKey("d")){
-            transform.setPosition(transform.getPosition() + glm::normalize(glm::cross(transform.getRotationVec(), {0.0f, 1.0f, 0.0f})) * deltaTime);
+            transform.setPosition(transform.getPosition() + glm::normalize(glm::cross(transform.getRotation(), {0.0f, 1.0f, 0.0f})) * deltaTime);
         }
 
         float sensitivity = 0.1f;
@@ -56,17 +56,31 @@ public:
         direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         direction.y = sin(glm::radians(pitch));
         direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        transform.setRotation(0, glm::normalize(direction));
+        transform.setRotation(glm::normalize(direction));
     }
     
     glm::mat4x4 getView(){
         auto& cameraTransform = getComponent<TransformComponent>();
 
-        return glm::lookAt(cameraTransform.getPosition(), cameraTransform.getPosition() + cameraTransform.getRotationVec(), glm::vec3(0.0f, 1.0f, 0.0f));
+        return glm::lookAt(cameraTransform.getPosition(), cameraTransform.getPosition() + cameraTransform.getRotation(), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+
+    void guiDisplayInspector(){
+        if(ImGui::CollapsingHeader("Camera")){
+            
+        }
+    }
+
+    json saveToJson(){
+        json component;
+        
+        return component;
+    }
+
+    void loadFromJson(json obj){
+        return;
     }
 
 };
-
-
 
 }

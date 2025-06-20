@@ -25,6 +25,8 @@ public:
         return graphicsPipeline;
     }
 
+private:
+
     void loadDependency(std::vector<std::any> dependencies){
 
         std::shared_ptr<VulkanRenderPass> renderPass;
@@ -35,8 +37,8 @@ public:
             }
         }
 
-        std::shared_ptr<VulkanShader> vertexShader = std::make_shared<VulkanShader>(renderPass->getDevice(), path, ShaderType::Vertex);
-        std::shared_ptr<VulkanShader> fragmentShader = std::make_shared<VulkanShader>(renderPass->getDevice(), path, ShaderType::Fragment);
+        std::shared_ptr<VulkanShader> vertexShader = std::make_shared<VulkanShader>(renderPass->getDevice(), getPath(), ShaderType::Vertex);
+        std::shared_ptr<VulkanShader> fragmentShader = std::make_shared<VulkanShader>(renderPass->getDevice(), getPath(), ShaderType::Fragment);
 
         graphicsPipeline = renderPass->createGraphicsPipeline({vertexShader, fragmentShader});
 

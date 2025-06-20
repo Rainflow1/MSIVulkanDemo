@@ -80,21 +80,24 @@ public:
 
     VulkanVertexData getVertexData(){ // TODO support location
         
-        uint32_t var_count = 0;
-        if(spvReflectEnumerateInputVariables(&module, &var_count, NULL) != SPV_REFLECT_RESULT_SUCCESS){
+        uint32_t num = 0;
+        if(spvReflectEnumerateInputVariables(&module, &num, NULL) != SPV_REFLECT_RESULT_SUCCESS){
             throw std::runtime_error("Cannot fetch input var number");
         }
 
-        SpvReflectInterfaceVariable** input_vars = (SpvReflectInterfaceVariable**)malloc(var_count * sizeof(SpvReflectInterfaceVariable*));
+        SpvReflectInterfaceVariable** attribs = (SpvReflectInterfaceVariable**)malloc(num * sizeof(SpvReflectInterfaceVariable*));
 
-        if(spvReflectEnumerateInputVariables(&module, &var_count, input_vars) != SPV_REFLECT_RESULT_SUCCESS){
+        if(spvReflectEnumerateInputVariables(&module, &num, attribs) != SPV_REFLECT_RESULT_SUCCESS){
             throw std::runtime_error("Cannot fetch input vars");
         }
 
-        std::vector<std::tuple<std::string, VkFormat, size_t>> attributes;
+        std::map<uint32_t, std::pair<VkFormat, size_t>> attributes;
 
-        for(uint32_t i = 0; i < var_count; i++){
-            attributes.push_back({std::string(input_vars[i]->name), static_cast<VkFormat>(input_vars[i]->format), input_vars[i]->numeric.scalar.width/8 * input_vars[i]->numeric.vector.component_count /* TODO calculate size also for mats and arrays */});
+        //std::vector<std::tuple<std::string, VkFormat, size_t>> attributes;
+
+        for(uint32_t i = 0; i < num; i++){
+            //attributes.push_back({std::string(input_vars[i]->name), static_cast<VkFormat>(input_vars[i]->format), input_vars[i]->numeric.scalar.width/8 * input_vars[i]->numeric.vector.component_count /* TODO calculate size also for mats and arrays */});
+            attributes.insert({attribs[i]->location, {static_cast<VkFormat>(attribs[i]->format), attribs[i]->numeric.scalar.width/8 * attribs[i]->numeric.vector.component_count}});
         }
 
         return VulkanVertexData(attributes);
@@ -126,7 +129,12 @@ public:
                 block.type = static_cast<VkDescriptorType>(binding->descriptor_type);
 
                 if(block.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER){
-                    block.attribs.push_back({.binding = block.binding, .name = binding->name, .size = 0});
+                    block.attribs.push_back({
+                        .binding = block.binding, 
+                        .name = binding->name, 
+                        .size = 0, 
+                        .componentCount = static_cast<uint32_t>(binding->image.dim == SpvDimCube ? 6 : 0) // TODO vector support
+                    });
                 }
 
                 for(uint32_t k = 0; k < binding->block.member_count; k++){
@@ -137,6 +145,14 @@ public:
                     attrib.size = member.padded_size;
                     attrib.binding = block.binding;
 
+                    if(member.numeric.matrix.column_count > 0){
+                        attrib.componentCount = member.numeric.matrix.column_count * member.numeric.matrix.row_count;
+                    }else if(member.numeric.vector.component_count > 0){
+                        attrib.componentCount = member.numeric.vector.component_count;
+                    }else{
+                        attrib.componentCount = 1;
+                    }
+                    
                     block.attribs.push_back(attrib);
                 }
 

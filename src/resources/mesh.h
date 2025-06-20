@@ -17,9 +17,10 @@ namespace MSIVulkanDemo{
 
 class Mesh : public Resource{
 private:
-    std::map<const std::string, const std::string> supportedAttributes = {
-        {"POSITION", "pos"},
-        {"NORMAL", "normal"}
+    std::map<const std::string, const uint32_t> supportedAttributes = {
+        {"POSITION", 0},
+        {"NORMAL", 1},
+        {"TEXCOORD_0", 2}
     };
 
     std::vector<std::shared_ptr<VulkanBufferI>> buffers;
@@ -58,9 +59,8 @@ public:
         //std::cout << mesh.primitives.size() << std::endl;
         //std::cout << model.meshes.size() << std::endl;
 
-        std::vector<std::tuple<std::string, VkFormat, size_t>> attributes;
-        std::vector<std::vector<float>> attributesData;
-        std::vector<size_t> attributesCounts;
+        std::map<uint32_t, std::pair<VkFormat, size_t>> attributes;
+        std::map<uint32_t, std::pair<uint32_t, std::vector<float>>> attributesData;
         size_t vertexCount = 0;
 
         for(auto& [key, val] : primitive.attributes){ 
@@ -75,15 +75,18 @@ public:
             auto& buffer = model.buffers[bufferView.buffer];
 
             VkFormat format;
-            const std::string name = supportedAttributes[key];
 
             switch (accessor.type){
                 case TINYGLTF_TYPE_VEC3: // TODO support more types and component types
                     format = VK_FORMAT_R32G32B32_SFLOAT;
                     break;
+
+                case TINYGLTF_TYPE_VEC2: 
+                    format = VK_FORMAT_R32G32_SFLOAT;
+                    break;
                 
                 default:
-                    throw std::runtime_error("Not supported model"); // TODO vector of supported attributes check on start
+                    throw std::runtime_error("Not supported model");
                     break;
             }
 
@@ -93,22 +96,23 @@ public:
                 throw std::runtime_error("Mesh attributes badly aligned");
             }
 
-            attributesData.push_back(std::vector<float>(bufferView.byteLength/sizeof(float)));
-            std::memcpy(attributesData.back().data(), buffer.data.data() + bufferView.byteOffset, bufferView.byteLength);
-            attributesCounts.push_back(tinygltf::GetNumComponentsInType(accessor.type));
+            attributesData.insert({supportedAttributes[key], {tinygltf::GetNumComponentsInType(accessor.type), std::vector<float>(bufferView.byteLength/sizeof(float))}});
+            std::memcpy(attributesData[supportedAttributes[key]].second.data(), buffer.data.data() + bufferView.byteOffset, bufferView.byteLength);
 
-            attributes.push_back({name, format, tinygltf::GetNumComponentsInType(accessor.type) * sizeof(float)});
+            attributes.insert({supportedAttributes[key], {format, tinygltf::GetNumComponentsInType(accessor.type) * sizeof(float)}});
         }
 
         vertexData = std::unique_ptr<VulkanVertexData>(new VulkanVertexData(attributes));
 
         for(uint32_t i = 0; i < vertexCount; i++){
             std::vector<float> data;
-            for(uint32_t j = 0; j < attributesCounts.size(); j++){
-                for(uint32_t k = 0; k < attributesCounts[j]; k++){
-                    data.push_back(attributesData[j][i * attributesCounts[j] + k]);
+
+            for(const auto& [key, val] : attributesData){
+                for(uint32_t j = 0; j < val.first; j++){
+                    data.push_back(val.second[val.first * i + j]);
                 }
             }
+
             vertexData->append(data);
         }
 
@@ -144,10 +148,13 @@ public:
         return indexBuffer;
     }
 
+private:
+
     void loadDependency(std::vector<std::any> dependencies){
         memoryManager = std::any_cast<std::shared_ptr<VulkanMemoryManager>>(dependencies[0]);
 
         vertexBuffer = std::shared_ptr<VulkanVertexBuffer>(new VulkanVertexBuffer(memoryManager, *vertexData));
+
         indexBuffer = std::shared_ptr<VulkanIndexBuffer>(new VulkanIndexBuffer(memoryManager, *vertexData));
 
         buffers.push_back(vertexBuffer);

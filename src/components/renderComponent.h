@@ -19,6 +19,24 @@ public:
 
     }
 
+    void guiDisplayInspector(){
+        if(ImGui::CollapsingHeader("Render")){
+            
+        }
+    }
+
+
+    json saveToJson(){
+        json component;
+        
+        return component;
+    }
+
+    void loadFromJson(json obj){
+        return;
+    }
+
+
 };
 
 

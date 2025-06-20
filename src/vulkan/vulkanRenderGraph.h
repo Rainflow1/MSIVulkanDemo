@@ -232,7 +232,7 @@ public:
         return sets;
     }
 */
-    void registerDescriptorSet(VulkanDescriptorSetOwner* owner, std::pair<VkImageView, VkSampler> defaultTex){
+    void registerDescriptorSet(VulkanDescriptorSetOwner* owner){
         std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
         if(owner->getDescriptorSet().size() > 0){
             return;
@@ -240,10 +240,11 @@ public:
 
         VulkanUniformData uniformData = owner->getGraphicsPipeline()->getUniformData();
 
-        uniformData.setDefaultTexture(defaultTex.first, defaultTex.second);
-
         for(auto buffer : commandBuffers){
-            sets.push_back(buffer->createDescriptorSet(uniformData));
+            auto set = buffer->createDescriptorSet(uniformData);
+            //set->setDefaultTexture(defaultTex.first, defaultTex.second);
+            //set->writeDescriptorSet(uniformData);
+            sets.push_back(set);
         }
 
         owner->setDescriptorSet(sets);
@@ -355,7 +356,7 @@ public:
 
             node.addDependencyMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
-            node.addImageView(depthView);
+            node.addImageView("DepthBuffer", depthView);
         }
         Dependency* clone() const{return new AddDepthBuffer(*this);}
     };

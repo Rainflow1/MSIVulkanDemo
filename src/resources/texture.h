@@ -71,6 +71,8 @@ public:
         return *texSampler;
     }
 
+private:
+
     void loadDependency(std::vector<std::any> dependencies){
         memoryManager = std::any_cast<std::shared_ptr<VulkanMemoryManager>>(dependencies[0]);
 
