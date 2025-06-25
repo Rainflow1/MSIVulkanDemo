@@ -200,3 +200,4 @@ private:
 }
 
 #include "./resources/texture.h"
+#include "./resources/script.h"

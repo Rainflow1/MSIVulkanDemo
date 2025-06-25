@@ -19,6 +19,7 @@
     "stb",
     "tinygltf",
     "vulkan",
-    "vulkan-memory-allocator"
+    "vulkan-memory-allocator",
+    "pybind11"
   ]
 }

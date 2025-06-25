@@ -48,6 +48,8 @@ layout(binding = 2) uniform _{
     vec3 _viewPos;
 };
 
+layout(binding = 9) uniform sampler2D tex;
+
 void main() {
 
     const vec3 lightColor = vec3(1.0, 1.0, 1.0);
@@ -64,7 +66,7 @@ void main() {
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec3 specular = lightColor * (spec * material.specular);
 
-    vec3 result = ambient + diffuse + specular;
+    vec3 result = (ambient + diffuse + specular) * texture(tex, texCoords).xyz;
     outColor = vec4(result, 1.0);
 }
 

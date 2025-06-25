@@ -6,9 +6,7 @@ layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoords;
 
-layout(location = 0) out vec3 normal;
-layout(location = 1) out vec3 pos;
-layout(location = 2) out vec2 texCoords;
+layout(location = 0) out vec3 inColor;
 
 
 layout(binding = 0) uniform _{
@@ -17,24 +15,6 @@ layout(binding = 0) uniform _{
     mat4 _proj;
 };
 
-
-void main() {
-    gl_Position = _proj * _view * _model * vec4(inPosition, 1.0);
-    pos = vec3(_model * vec4(inPosition, 1.0));
-    normal = mat3(transpose(inverse(_model))) * inNormal;
-    texCoords = inTexCoords;
-}
-
-#endif
-
-#ifdef FRAGMENT
-
-layout(location = 0) in vec3 normal;
-layout(location = 1) in vec3 fragPos; 
-layout(location = 2) in vec2 texCoords;
-
-layout(location = 0) out vec4 outColor;
-
 layout(binding = 1) uniform mat{
     vec3 ambient;
     vec3 diffuse;
@@ -42,15 +22,20 @@ layout(binding = 1) uniform mat{
     float shininess;
 } material;
 
-layout(binding = 2) uniform _{
+layout(binding = 2) uniform ya{
     //vec3 lightcolor;
     vec3 lightPos;
     vec3 _viewPos;
 };
 
-void main() {
 
-    const vec3 lightColor = vec3(1.0, 1.0, 1.0);
+void main() {
+    gl_Position = _proj * _view * _model * vec4(inPosition, 1.0);
+
+    vec3 fragPos = vec3(_model * vec4(inPosition, 1.0));
+    vec3 normal = mat3(transpose(inverse(_model))) * inNormal;
+
+    const vec3 lightColor = vec3(1.0, 1, 1);
 
     vec3 ambient = material.ambient * lightColor;
 
@@ -65,7 +50,21 @@ void main() {
     vec3 specular = lightColor * (spec * material.specular);
 
     vec3 result = ambient + diffuse + specular;
-    outColor = vec4(result, 1.0);
+
+    inColor = result;
+}
+
+#endif
+
+#ifdef FRAGMENT
+
+layout(location = 0) in vec3 inColor;
+
+layout(location = 0) out vec4 outColor;
+
+
+void main() {
+    outColor = vec4(inColor, 1.0);
 }
 
 #endif

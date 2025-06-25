@@ -37,12 +37,14 @@ public:
         data.push_back(std::vector<uint8_t>(pixels, pixels + texWidth * texHeight * 4));  // WARN only 4 channels supported
 
         imageData->append(data);
+
+        stbi_image_free(pixels);
     }
 
     Texture(std::vector<std::string> paths, VulkanTexture::textureType type = VulkanTexture::Cubemap): type(type){
 
         int texWidth, texHeight, texChannels;
-        stbi_load(paths[0].c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        stbi_image_free(stbi_load(paths[0].c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha));
 
         imageData = std::unique_ptr<VulkanImageData>(new VulkanImageData({texWidth, texHeight}, 4, 6));  // WARN only 4 channels supported
 
@@ -53,7 +55,7 @@ public:
 
             data.push_back(std::vector<uint8_t>(pixels, pixels + texWidth * texHeight * 4));  // WARN only 4 channels supported
 
-            std::cout << path << ": " << texWidth << ", " << texHeight << std::endl;
+            //std::cout << path << ": " << texWidth << ", " << texHeight << std::endl;
 
             stbi_image_free(pixels);
         }

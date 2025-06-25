@@ -2,7 +2,7 @@
 
 #include "../fileDialog.h"
 
-#include "../component.h"
+#include "../component_decl.h"
 #include "../resources/shaderProgram.h"
 
 #include <iostream>
@@ -14,6 +14,7 @@ namespace MSIVulkanDemo{
 
 class MaterialComponent : public Component, public VulkanDescriptorSetOwner{
 private:
+    std::string shaderToCompile;
     std::shared_ptr<ShaderProgram> shaderProgram; 
     std::vector<std::shared_ptr<VulkanDescriptorSet>> descriptorSet;
 
@@ -22,16 +23,20 @@ private:
 
 public:
     MaterialComponent(std::shared_ptr<ResourceManager> resMgr): Component(resMgr), shaderProgram(resMgr->getResource<ShaderProgram>("./shaders/default.glsl")){
-        
+
     }
 
     MaterialComponent(std::shared_ptr<ShaderProgram> shaderProgram) : shaderProgram(shaderProgram){
-        // TODO add default shader if cant compile
+
     }
 
     ~MaterialComponent(){
         
     }
+
+    void afterResourceManager() override{
+        updateUniforms();
+    };
 
     std::shared_ptr<VulkanGraphicsPipeline> getGraphicsPipeline(){
         return shaderProgram->getGraphicsPipeline();
@@ -131,155 +136,148 @@ public:
     void guiDisplayInspector(){
         if(ImGui::CollapsingHeader("Material")){
 
-            ImGui::BeginGroup();
+            ImGui::Text("Shader: ");
+            ImGui::SameLine();
+            if(ImGui::SmallButton((shaderProgram->getPath()).c_str())){
 
-                ImGui::Text("Shader: ");
-                ImGui::SameLine();
-                if(ImGui::SmallButton((shaderProgram->getPath()).c_str())){
+                std::shared_ptr<ShaderProgram> newShaderProgram;
 
-                    std::shared_ptr<ShaderProgram> newShaderProgram;
-
-                    try{
-                        newShaderProgram = resourceManager->getResource<ShaderProgram>(std::filesystem::relative(FileDialog::fileDialog().getPath()).string());
-                    }catch(std::exception ex){
-                        std::cout << "Can`t compile shader" << std::endl;
-                    }
-
-                    if(newShaderProgram){
-                        shaderProgram = newShaderProgram;
-                        clearUniformsAndDescriptorSet();
-                    }
-                    
+                try{
+                    newShaderProgram = resourceManager->getResource<ShaderProgram>(std::filesystem::relative(FileDialog::fileDialog().getPath()).string());
+                }catch(std::exception ex){
+                    std::cout << "Can`t compile shader" << std::endl;
                 }
 
-            ImGui::EndGroup();
-
-            ImGui::BeginGroup();
-
-                const float step = 0.1f;
-
-                ImGui::SeparatorText("Uniforms: ");
-
-                for(auto& [name, uniform] : floatUniforms){
-                    ImGui::Separator();          
-                    switch(uniform.size()){
-
-                    case 16:
-                        ImGui::DragFloat4(name.c_str(), floatUniforms.at(name).data(), step);
-                        ImGui::DragFloat4(("##" + name+"1").c_str(), floatUniforms.at(name).data()+4, step);
-                        ImGui::DragFloat4(("##" + name+"2").c_str(), floatUniforms.at(name).data()+8, step);
-                        ImGui::DragFloat4(("##" + name+"3").c_str(), floatUniforms.at(name).data()+12, step);
-                        break;
-
-                    case 9:
-                        ImGui::DragFloat3(name.c_str(), floatUniforms.at(name).data(), step);
-                        ImGui::DragFloat3(("##" + name+"1").c_str(), floatUniforms.at(name).data()+3, step);
-                        ImGui::DragFloat3(("##" + name+"2").c_str(), floatUniforms.at(name).data()+6, step);
-                        break;
-
-                    case 4:
-                        ImGui::DragFloat4(name.c_str(), floatUniforms.at(name).data(), step);
-                        break;
-
-                    case 3:
-                        ImGui::DragFloat3(name.c_str(), floatUniforms.at(name).data(), step);
-                        ImGui::SameLine();
-                        if(ImGui::SmallButton(("C##" + name).c_str())){
-                            ImGui::OpenPopup(("ColorPicker##Popup" + name).c_str());
-                        }
-
-                        if (ImGui::BeginPopupModal(("ColorPicker##Popup" + name).c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
-                            ImGui::SetWindowPos({ImGui::GetIO().DisplaySize.x/2 - 150, ImGui::GetIO().DisplaySize.y/2 - 150});
-                            ImGui::SetWindowSize({300, 300});
-
-                            static glm::vec3 color;
-
-                            ImGui::ColorPicker3("Color", glm::value_ptr(color));
-
-                            if(ImGui::Button("Apply")){
-                                floatUniforms.at(name)[0] = color.x;
-                                floatUniforms.at(name)[1] = color.y;
-                                floatUniforms.at(name)[2] = color.z;
-                                ImGui::CloseCurrentPopup();
-                            }
-                            ImGui::SameLine();
-                            if(ImGui::Button("Close")){
-                                ImGui::CloseCurrentPopup();
-                            }
-
-                            ImGui::EndPopup();
-                        }
-                        break;
-
-                    case 2:
-                        ImGui::DragFloat2(name.c_str(), floatUniforms.at(name).data(), step);
-                        break;
-
-                    case 1:
-                        ImGui::DragFloat(name.c_str(), floatUniforms.at(name).data(), step);
-                        break;
-                    
-                    default:
-                        break;
-                    }
+                if(newShaderProgram){
+                    shaderProgram = newShaderProgram;
+                    clearUniformsAndDescriptorSet();
                 }
-            ImGui::EndGroup();
+                
+            }
 
-            ImGui::BeginGroup();
 
-                ImGui::SeparatorText("Textures: ");
 
-                for(auto& [name, tex] : textures){           
-                    
-                    if(shaderProgram->getGraphicsPipeline()->getUniformData().getAttribute(name).componentCount == 6){
+            const float step = 0.01f;
+            ImGui::SeparatorText("Uniforms: ");
 
-                        const std::array<std::string, 6> names = {"right", "left", "top", "bottom", "front", "back"};
+            for(auto& [name, uniform] : floatUniforms){
+                ImGui::Separator();          
+                switch(uniform.size()){
 
-                        std::vector<std::string> filePaths = tex->getPaths(); // FIXME
+                case 16:
+                    ImGui::DragFloat4(name.c_str(), floatUniforms.at(name).data(), step);
+                    ImGui::DragFloat4(("##" + name+"1").c_str(), floatUniforms.at(name).data()+4, step);
+                    ImGui::DragFloat4(("##" + name+"2").c_str(), floatUniforms.at(name).data()+8, step);
+                    ImGui::DragFloat4(("##" + name+"3").c_str(), floatUniforms.at(name).data()+12, step);
+                    break;
 
-                        ImGui::Text((name + ": ").c_str());
-                        ImGui::Indent(10.0f);
+                case 9:
+                    ImGui::DragFloat3(name.c_str(), floatUniforms.at(name).data(), step);
+                    ImGui::DragFloat3(("##" + name+"1").c_str(), floatUniforms.at(name).data()+3, step);
+                    ImGui::DragFloat3(("##" + name+"2").c_str(), floatUniforms.at(name).data()+6, step);
+                    break;
 
-                        for(uint32_t i = 0; i < 6; i++){                           
-                            ImGui::Text((names[i] + ": ").c_str());
-                            ImGui::SameLine();
-                            if(ImGui::SmallButton((filePaths[i] + "##" + name + names[i]).c_str())){ 
-                                auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                case 4:
+                    ImGui::DragFloat4(name.c_str(), floatUniforms.at(name).data(), step);
+                    break;
 
-                                if(!filePath.empty()){
-                                    filePaths[i] = filePath;
-                                }
-                            }
+                case 3:
+                    ImGui::DragFloat3(name.c_str(), floatUniforms.at(name).data(), step);
+                    ImGui::SameLine();
+                    if(ImGui::SmallButton(("C##" + name).c_str())){
+                        ImGui::OpenPopup(("ColorPicker##Popup" + name).c_str());
+                    }
+
+                    if (ImGui::BeginPopupModal(("ColorPicker##Popup" + name).c_str(), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
+                        ImGui::SetWindowPos({ImGui::GetIO().DisplaySize.x/2 - 150, ImGui::GetIO().DisplaySize.y/2 - 150});
+                        ImGui::SetWindowSize({300, 300});
+
+                        static glm::vec3 color;
+
+                        ImGui::ColorPicker3("Color", glm::value_ptr(color));
+
+                        if(ImGui::Button("Apply")){
+                            floatUniforms.at(name)[0] = color.x;
+                            floatUniforms.at(name)[1] = color.y;
+                            floatUniforms.at(name)[2] = color.z;
+                            ImGui::CloseCurrentPopup();
                         }
-
-                        if(ImGui::Button(("Confirm##" + name).c_str())){
-                            try{
-                                std::shared_ptr<Texture> newTex = resourceManager->getResource<Texture>(filePaths);
-                                setTexture(name, newTex);
-                            }catch(std::exception e){
-                                std::cout << "Cant load texture" << std::endl;
-                            }
-                        }
-
-                        ImGui::Unindent(10.0f);
-
-                    }else{
-                        ImGui::Text((name + ": ").c_str());
                         ImGui::SameLine();
-                        if(ImGui::SmallButton((tex->getPath() + "##" + name).c_str())){
+                        if(ImGui::Button("Close")){
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        ImGui::EndPopup();
+                    }
+                    break;
+
+                case 2:
+                    ImGui::DragFloat2(name.c_str(), floatUniforms.at(name).data(), step);
+                    break;
+
+                case 1:
+                    ImGui::DragFloat(name.c_str(), floatUniforms.at(name).data(), step);
+                    break;
+                
+                default:
+                    break;
+                }
+            }
+
+            
+
+            ImGui::SeparatorText("Textures: ");
+
+            for(auto& [name, tex] : textures){           
+                
+                if(shaderProgram->getGraphicsPipeline()->getUniformData().getAttribute(name).componentCount == 6){
+
+                    const std::array<std::string, 6> names = {"right", "left", "top", "bottom", "front", "back"};
+
+                    std::vector<std::string> filePaths = tex->getPaths(); // FIXME
+
+                    ImGui::Text((name + ": ").c_str());
+                    ImGui::Indent(10.0f);
+
+                    for(uint32_t i = 0; i < 6; i++){                           
+                        ImGui::Text((names[i] + ": ").c_str());
+                        ImGui::SameLine();
+                        if(ImGui::SmallButton((filePaths[i] + "##" + name + names[i]).c_str())){ 
                             auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
 
                             if(!filePath.empty()){
-                                setTexture(name, resourceManager->getResource<Texture>(filePath));
+                                filePaths[i] = filePath;
                             }
+                        }
+                    }
 
+                    if(ImGui::Button(("Confirm##" + name).c_str())){
+                        try{
+                            std::shared_ptr<Texture> newTex = resourceManager->getResource<Texture>(filePaths);
+                            setTexture(name, newTex);
+                        }catch(std::exception e){
+                            std::cout << "Cant load texture" << std::endl;
+                        }
+                    }
+
+                    ImGui::Unindent(10.0f);
+
+                }else{
+                    ImGui::Text((name + ": ").c_str());
+                    ImGui::SameLine();
+                    if(ImGui::SmallButton((tex->getPath() + "##" + name).c_str())){
+                        auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+
+                        if(!filePath.empty()){
+                            setTexture(name, resourceManager->getResource<Texture>(filePath));
                         }
 
                     }
 
                 }
 
-            ImGui::EndGroup();
+            }
+
         }
     }
 

@@ -9,7 +9,9 @@
 #include "resourceManager.h"
 #include "vulkan/vulkanCore.h"
 #include "input.h"
+#include "gameobjectManagerI.h"
 #include "gameobject.h"
+#include "scriptManager.h"
 
 #include <iostream>
 #include <vector>
@@ -19,7 +21,7 @@
 namespace MSIVulkanDemo{
 
 
-class Scene : public VulkanRendererI, public VulkanRenderGraphBuilderI, public JsonI{
+class Scene : std::enable_shared_from_this<GameobjectManagerI>, public GameobjectManagerI, public VulkanRendererI, public VulkanRenderGraphBuilderI, public JsonI{
 
 private:
     std::map<std::string, std::shared_ptr<GameObject>> gameObjects;
@@ -28,6 +30,8 @@ private:
 
     std::shared_ptr<VulkanRenderGraph> renderGraph;
     std::shared_ptr<VulkanRenderPass> mainRenderpass;
+
+    std::shared_ptr<ScriptManager> scriptManager;
 
 protected:
     std::shared_ptr<ResourceManager> resourceManager;
@@ -39,6 +43,7 @@ public:
         auto mainCamera = spawnGameObject("MainCamera");
         mainCamera->addComponent<TransformComponent>(glm::vec3(-2.0f, 0.0f, 1.0f));
         mainCamera->addComponent<CameraComponent>();
+        scriptManager = std::shared_ptr<ScriptManager>(new ScriptManager());
     }
 
     Scene(Scene& other) = delete;
@@ -166,6 +171,13 @@ public:
 
         ImGui::End();
 
+
+        auto scriptView = entityRegistry->view<ScriptComponent>();
+
+        for(auto script : scriptView){
+            scriptView.get<ScriptComponent>(script).execUpdate(deltaTime);
+        }
+
         return this->update(deltaTime, input);
     }
 
@@ -277,6 +289,7 @@ public:
         resourceManager->addDependency<ShaderProgram>(renderGraph);
         resourceManager->addDependency<Mesh>(context.getMemoryManager());
         resourceManager->addDependency<Texture>(context.getMemoryManager());
+        resourceManager->addDependency<Script>(scriptManager);
 
         setup();
     }
@@ -312,9 +325,9 @@ public:
         return;
     }
 
-protected:
+public:
     GameObject* spawnGameObject(std::string objName){
-        std::shared_ptr<GameObject> ptr = std::make_shared<GameObject>(entityRegistry, resourceManager);
+        std::shared_ptr<GameObject> ptr = std::make_shared<GameObject>(entityRegistry, resourceManager, this);
         gameObjects.insert({objName, ptr});
         return &*ptr;
     }
@@ -327,8 +340,30 @@ protected:
         return &*ptr;
     }
 
+    std::vector<std::pair<std::string, std::shared_ptr<GameObject>>> getAllGameObjects(){
+        std::vector<std::pair<std::string, std::shared_ptr<GameObject>>> objects;
+
+        for(const auto [name, objPtr] : gameObjects){
+            objects.push_back({name, objPtr});
+        }
+
+        return objects;
+    }
+
     void removeGameObject(std::string objName){
         gameObjects.at(objName)->remove();
+    }
+
+    std::string getGameObjectName(std::shared_ptr<GameObject> obj){
+        std::string name = "Null";
+        
+        for(const auto [objName, objPtr] : gameObjects){
+            if(objPtr == obj){
+                name = objName;
+            }
+        }
+
+        return name;
     }
 
 private:
@@ -343,38 +378,162 @@ public:
 
     void setup(){
         
-        GameObject* obj = spawnGameObject("Object1");
-        obj->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLighting.glsl"));
-        obj->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/torusHighpoly.glb"));
-        obj->addComponent<TransformComponent>(
-            glm::vec3(1.0f, 0.0f, 0.0f), 
-            glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3(0.5f, 0.5f, 0.5f)
-        );
-        obj->addComponent<RenderComponent>();
-        obj->getComponent<MaterialComponent>().setUniform<glm::vec3>("diffuse", {1.0f, 0.5f, 0.31f});
-        obj->getComponent<MaterialComponent>().setUniform<glm::vec3>("specular", {0.5f, 0.5f, 0.5f});
-        obj->getComponent<MaterialComponent>().setUniform<float>("shininess", 16.0f);
-        obj->getComponent<MaterialComponent>().setTexture("albedoTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_albedo.png"));
-        obj->getComponent<MaterialComponent>().setTexture("normTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_normal-ogl.png"));
-        obj->getComponent<MaterialComponent>().setTexture("heightTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_height.png"));
-        obj->getComponent<MaterialComponent>().setTexture("aoTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_ao.png"));
-        obj->getComponent<MaterialComponent>().setTexture("metallicTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_metallic.png"));
-        obj->getComponent<MaterialComponent>().setTexture("roughnessTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_roughness.png"));
-        obj->getComponent<MaterialComponent>().setTexture("Skybox", resourceManager->getResource<Texture>({
+        auto skyboxTex = resourceManager->getResource<Texture>({
             "./textures/skybox/right.jpg",
             "./textures/skybox/left.jpg",
             "./textures/skybox/top.jpg",
             "./textures/skybox/bottom.jpg",
             "./textures/skybox/front.jpg",
             "./textures/skybox/back.jpg"
-        }));
+        });
+
+        GameObject* lightSrc = spawnGameObject("light source");
+        lightSrc->addComponent<TransformComponent>(
+            glm::vec3(1.0f, 0.0f, 0.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.5f, 0.5f, 0.5f)
+        );
+        lightSrc->addComponent<ScriptComponent>(resourceManager->getResource<Script>("./scripts/circle.py"));
+        //script.getScript("Circle")->setProperty<glm::vec3>("offset", {0.0f, 5.0f, 0.0f});
+
+        /*
+        for(uint32_t i = 0; i < 5; i++){
+            for(uint32_t j = 0; j < 5; j++){
+                GameObject* pbr = spawnGameObject(std::format("pbr_{}_{}", i, j));
+                pbr->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLighting.glsl"));
+                pbr->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/sphereHighpoly.glb"));
+                pbr->addComponent<TransformComponent>(
+                    glm::vec3(1.0f * i, 1.0f * j, 0.0f), 
+                    glm::vec3(0.0f, 0.0f, 0.0f),
+                    glm::vec3(0.25f, 0.25f, 0.25f)
+                );
+                pbr->addComponent<RenderComponent>();
+                pbr->getComponent<MaterialComponent>().setUniform<glm::vec3>("inAlbedo", {1.0f, 0.5f, 0.0f});
+                pbr->getComponent<MaterialComponent>().setUniform<float>("inRoughness", 0.2f * i + 0.1f);
+                pbr->getComponent<MaterialComponent>().setUniform<float>("inMetallic", 0.2f * j + 0.1f);
+                pbr->getComponent<MaterialComponent>().setUniform<float>("inReflectance", 0.2f * j + 0.1f);
+
+                pbr->getComponent<MaterialComponent>().setTexture("Skybox", skyboxTex);
+            }
+        }
+        */
+
+
+
+        /*
+        GameObject* pbr = spawnGameObject("pbr");
+        pbr->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLighting.glsl"));
+        pbr->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/sphereHighpoly.glb"));
+        pbr->addComponent<TransformComponent>(
+            glm::vec3(0.0f, 0.0f, 2.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.25f, 0.25f, 0.25f)
+        );
+        pbr->addComponent<RenderComponent>();
+        pbr->getComponent<MaterialComponent>().setUniform<glm::vec3>("inAlbedo", {0.0f, 1.0f, 0.2f});
+        pbr->getComponent<MaterialComponent>().setUniform<float>("inRoughness", 0.5f);
+        pbr->getComponent<MaterialComponent>().setUniform<float>("inMetallic", 0.5f);
+        pbr->getComponent<MaterialComponent>().setUniform<float>("inReflectance", 0.75f);
+
+        pbr->getComponent<MaterialComponent>().setTexture("Skybox", skyboxTex);
+
+
+        GameObject* pbrTex = spawnGameObject("pbrTex");
+        pbrTex->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLightingTexture.glsl"));
+        pbrTex->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/torusHighpoly.glb"));
+        pbrTex->addComponent<TransformComponent>(
+            glm::vec3(0.0f, 0.0f, 1.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.5f, 0.5f, 0.5f)
+        );
+        pbrTex->addComponent<RenderComponent>();
+        
+        pbrTex->getComponent<MaterialComponent>().setTexture("albedoTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_albedo.png"));
+        pbrTex->getComponent<MaterialComponent>().setTexture("normTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_normal-ogl.png"));
+        pbrTex->getComponent<MaterialComponent>().setTexture("heightTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_height.png"));
+        pbrTex->getComponent<MaterialComponent>().setTexture("aoTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_ao.png"));
+        pbrTex->getComponent<MaterialComponent>().setTexture("metallicTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_metallic.png"));
+        pbrTex->getComponent<MaterialComponent>().setTexture("roughnessTex", resourceManager->getResource<Texture>("./textures/fancy-scaled-gold-bl/fancy-scaled-gold_roughness.png"));
+
+        pbrTex->getComponent<MaterialComponent>().setTexture("Skybox", skyboxTex);
+
+        GameObject* phong = spawnGameObject("phong");
+        phong->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/phongLighting.glsl"));
+        phong->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cube.glb"));
+        phong->addComponent<TransformComponent>(
+            glm::vec3(0.0f, 0.0f, 0.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.25f, 0.25f, 0.25f)
+        );
+        phong->addComponent<RenderComponent>();
+
+        phong->getComponent<MaterialComponent>().setUniform<glm::vec3>("ambient", {1.0f, 0.0f, 0.31f});
+        phong->getComponent<MaterialComponent>().setUniform<glm::vec3>("diffuse", {1.0f, 1.0f, 0.31f});
+        phong->getComponent<MaterialComponent>().setUniform<glm::vec3>("specular", {0.0f, 0.5f, 0.5f});
+        phong->getComponent<MaterialComponent>().setUniform<float>("shininess", 32.0f);
+
+        //obj->addComponent<ScriptComponent>(resourceManager->getResource<Script>("./scripts/bindToUniform.py"));
+        //script.addScript(resourceManager->getResource<Script>("./scripts/bindToUniform.py"));
+        //script.getScript("BindToUniform")->setProperty<PythonBindings::PyString>("uniformName", PythonBindings::PyString("lightPos"));
+        //script.getScript("BindToUniform")->setProperty<PythonBindings::ObjectRef>("bindedObj", PythonBindings::ObjectRef());
+
+        
+        GameObject* obj2 = spawnGameObject("Object2");
+        obj2->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/default.glsl"));
+        obj2->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cubeuv.glb"));
+        obj2->addComponent<TransformComponent>(
+            glm::vec3(0.5f, 0.0f, 0.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f), 
+            glm::vec3(0.1f, 0.1f, 0.1f)
+        );
+        obj2->addComponent<RenderComponent>();
+        //obj2->addComponent<ScriptComponent>(resourceManager->getResource<Script>("./scripts/circle.py"));
+        
+
+
+        GameObject* gouraudPhong = spawnGameObject("gouraudPhong");
+        gouraudPhong->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/gouraudPhongLighting.glsl"));
+        gouraudPhong->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/sphereHighpoly.glb"));
+        gouraudPhong->addComponent<TransformComponent>(
+            glm::vec3(2.0f, 0.0f, 0.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.25f, 0.25f, 0.25f)
+        );
+        gouraudPhong->addComponent<RenderComponent>();
+
+        gouraudPhong->getComponent<MaterialComponent>().setUniform<glm::vec3>("ambient", {1.0f, 0.5f, 0.5f});
+        gouraudPhong->getComponent<MaterialComponent>().setUniform<glm::vec3>("diffuse", {0.0f, 0.0f, 0.1f});
+        gouraudPhong->getComponent<MaterialComponent>().setUniform<glm::vec3>("specular", {1.0f, 1.0f, 0.5f});
+        gouraudPhong->getComponent<MaterialComponent>().setUniform<float>("shininess", 64.0f);
+
+
+        GameObject* phongTex = spawnGameObject("phongTex");
+        phongTex->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/phongLightingTexture.glsl"));
+        phongTex->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cubeuv.glb"));
+        phongTex->addComponent<TransformComponent>(
+            glm::vec3(2.0f, 0.0f, 1.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.25f, 0.25f, 0.25f)
+        );
+        phongTex->addComponent<RenderComponent>();
+
+        phongTex->getComponent<MaterialComponent>().setUniform<glm::vec3>("ambient", {1.0f, 1.0f, 1.0f});
+        phongTex->getComponent<MaterialComponent>().setUniform<glm::vec3>("diffuse", {1.0f, 0.5f, 0.31f});
+        phongTex->getComponent<MaterialComponent>().setUniform<glm::vec3>("specular", {1.0f, 0.0f, 1.0f});
+        phongTex->getComponent<MaterialComponent>().setUniform<float>("shininess", 32.0f);
+        phongTex->getComponent<MaterialComponent>().setTexture("tex", resourceManager->getResource<Texture>("./textures/Tiles.jpg"));
+        */
+
+
+
 
 
         GameObject* skybox = spawnGameObject("Skybox");
         auto& mat = skybox->addComponent<MaterialComponent>(
             resourceManager->getResource<ShaderProgram>("./shaders/skybox.glsl")
         );
+        mat.setTexture("Skybox", skyboxTex);
+        /*
         mat.setTexture("Skybox", resourceManager->getResource<Texture>({
             "./textures/skybox/right.jpg",
             "./textures/skybox/left.jpg",
@@ -383,11 +542,28 @@ public:
             "./textures/skybox/front.jpg",
             "./textures/skybox/back.jpg"
         }));
+        */
         skybox->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cubemap.glb"));
     }
 
     void update(float deltaTime, Input& input){
 
+        auto light = getGameObject("light source");
+
+        if(light){
+            auto lightPos = light->getComponent<TransformComponent>().getPosition();
+
+            for(const auto& [name, obj] : getAllGameObjects()){
+                if(obj->hasComponent<MaterialComponent>()){
+                    auto& mat = obj->getComponent<MaterialComponent>();
+                    if(mat.hasUniform("lightPos")){
+                        mat.setUniform<glm::vec3>("lightPos", lightPos);
+                    }
+                }
+            }
+        }        
+
+/*
         static float totalTime = 0.0;
         totalTime += deltaTime;
 
@@ -414,7 +590,7 @@ public:
         }
 
         obj->getComponent<MaterialComponent>().setUniform("lightPos", obj2->getComponent<TransformComponent>().getPosition());
-
+*/
     }
 
 };
@@ -426,13 +602,26 @@ public:
 
     void setup(){
         
-        
+
         
     }
 
     void update(float deltaTime, Input& input){
 
-        
+        auto light = getGameObject("light source");
+
+        if(light){
+            auto lightPos = light->getComponent<TransformComponent>().getPosition();
+
+            for(const auto& [name, obj] : getAllGameObjects()){
+                if(obj->hasComponent<MaterialComponent>()){
+                    auto& mat = obj->getComponent<MaterialComponent>();
+                    if(mat.hasUniform("lightPos")){
+                        mat.setUniform<glm::vec3>("lightPos", lightPos);
+                    }
+                }
+            }
+        }  
 
     }
 

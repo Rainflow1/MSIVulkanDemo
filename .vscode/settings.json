@@ -91,6 +91,11 @@
         "stack": "cpp",
         "variant": "cpp",
         "valarray": "cpp",
-        "csignal": "cpp"
+        "csignal": "cpp",
+        "complex": "cpp",
+        "coroutine": "cpp",
+        "strstream": "cpp",
+        "typeindex": "cpp",
+        "*.hpp11": "cpp"
     }
 }

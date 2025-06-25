@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../component.h"
+#include "../component_decl.h"
 
 #include <iostream>
 #include <vector>
@@ -30,6 +30,10 @@ public:
 
     }
 
+    TransformComponent(const TransformComponent& copy): position(copy.position), scale(copy.scale), rotation(copy.rotation){
+
+    }
+
     void guiDisplayInspector(){
         if(ImGui::CollapsingHeader("Transform")){
             ImGui::DragFloat3("position", glm::value_ptr(position), 0.1f);
@@ -56,6 +60,10 @@ public:
 
     glm::vec3 getScale(){
         return scale;
+    }
+
+    void setScale(glm::vec3 scal){
+        scale = scal;
     }
 
     glm::vec3 getRotation(){

@@ -45,7 +45,9 @@ public:
                     std::shared_ptr<Mesh> newMesh;
 
                     try{
-                        newMesh = resourceManager->getResource<Mesh>(std::filesystem::relative(FileDialog::fileDialog().getPath()).string());
+                        std::string pth = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                        if(!pth.empty())
+                            newMesh = resourceManager->getResource<Mesh>(pth);
                     }catch(std::exception ex){
                         std::cout << "Can`t load mesh" << std::endl;
                     }

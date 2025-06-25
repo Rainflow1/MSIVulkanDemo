@@ -36,7 +36,7 @@ layout(binding = 2) uniform _{
 };
 
 void main() {
-    outColor = texture(tex, texCoords) * vec4(color, 1.0);
+    outColor = texture(tex, texCoords);
 }
 
 #endif
