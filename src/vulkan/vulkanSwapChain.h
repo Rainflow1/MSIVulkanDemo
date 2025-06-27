@@ -71,7 +71,7 @@ public:
             recreateSwapChain();
             return -1;
         } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            throw std::runtime_error("failed to acquire swap chain image!");
+            throw std::runtime_error("failed to acquire swap chain image: " + result);
         }
 
         return imageIndex;
@@ -96,7 +96,7 @@ public:
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
             recreateSwapChain();
         } else if (result != VK_SUCCESS) {
-            throw std::runtime_error("failed to present swap chain image!");
+            throw std::runtime_error("failed to present swap chain image: " + result);
         }
     }
 
@@ -188,8 +188,8 @@ private:
 
         createInfo.oldSwapchain = oldSwapChain;
 
-        if (vkCreateSwapchainKHR(*device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create swap chain!");
+        if (VkResult errCode = vkCreateSwapchainKHR(*device, &createInfo, nullptr, &swapChain); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create swap chain: {}", static_cast<int>(errCode)));
         }
 
         vkGetSwapchainImagesKHR(*device, swapChain, &imageCount, nullptr);

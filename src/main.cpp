@@ -1,7 +1,8 @@
 #include "app.h"
+#include <stdlib.h>
 
 int main(){
-    
+
     try{
         MSIVulkanDemo::App app;
         app.run();
@@ -9,5 +10,8 @@ int main(){
         std::cerr << e.what() << '\n';
     }
 
+#ifdef RELEASE
+    system("pause");
+#endif
     return 0;
 }

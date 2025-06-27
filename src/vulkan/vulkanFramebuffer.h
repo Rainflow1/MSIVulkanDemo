@@ -47,8 +47,8 @@ public:
         framebufferInfo.height = height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(*renderPass->getDevice(), &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS){
-            throw std::runtime_error("failed to create framebuffer!");
+        if (VkResult errCode = vkCreateFramebuffer(*renderPass->getDevice(), &framebufferInfo, nullptr, &framebuffer); errCode != VK_SUCCESS){
+            throw std::runtime_error(std::format("failed to create framebuffer: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -104,8 +104,8 @@ public:
         framebufferInfo.height = renderPass->getSwapChain()->getSwapChainExtent().height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(*renderPass->getDevice(), &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS){
-            throw std::runtime_error("failed to create framebuffer!");
+        if (VkResult errCode = vkCreateFramebuffer(*renderPass->getDevice(), &framebufferInfo, nullptr, &framebuffer); errCode != VK_SUCCESS){
+            throw std::runtime_error(std::format("failed to create framebuffer: {}", static_cast<int>(errCode)));
         }
 
     }

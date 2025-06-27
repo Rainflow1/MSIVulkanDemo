@@ -228,8 +228,8 @@ public:
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
         layoutInfo.pBindings = bindings.data();
 
-        if (vkCreateDescriptorSetLayout(*device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor set layout!");
+        if (VkResult errCode = vkCreateDescriptorSetLayout(*device, &layoutInfo, nullptr, &descriptorSetLayout); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create descriptor set layout: {}", static_cast<int>(errCode)));
         }
 
     }
@@ -287,8 +287,8 @@ public:
         poolInfo.pPoolSizes = poolSizes.data();
         poolInfo.maxSets = 1000; // TODO to count
 
-        if (vkCreateDescriptorPool(*device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor pool!");
+        if (VkResult errCode = vkCreateDescriptorPool(*device, &poolInfo, nullptr, &descriptorPool); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create descriptor pool: {}", static_cast<int>(errCode)));
         }
 
     }
@@ -335,8 +335,8 @@ public:
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts = layout->getLayoutPtr();
 
-        if (vkAllocateDescriptorSets(descriptorPool->getDevice(), &allocInfo, &descriptorSet) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor set!");
+        if (VkResult errCode = vkAllocateDescriptorSets(descriptorPool->getDevice(), &allocInfo, &descriptorSet); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to allocate descriptor set: {}", static_cast<int>(errCode)));
         }
     }
 

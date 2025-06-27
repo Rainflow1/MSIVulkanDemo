@@ -28,8 +28,8 @@ public:
         createInfo.hwnd = glfwGetWin32Window(window);
         createInfo.hinstance = GetModuleHandle(nullptr);
 
-        if (vkCreateWin32SurfaceKHR(*instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create window surface!");
+        if (VkResult errCode = vkCreateWin32SurfaceKHR(*instance, &createInfo, nullptr, &surface); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create window surface: {}", static_cast<int>(errCode)));
         }
 
     }

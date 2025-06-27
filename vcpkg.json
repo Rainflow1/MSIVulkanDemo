@@ -14,12 +14,13 @@
     },
     "nativefiledialog-extended",
     "nlohmann-json",
+    "pybind11",
     "shaderc",
     "spirv-reflect",
     "stb",
     "tinygltf",
     "vulkan",
     "vulkan-memory-allocator",
-    "pybind11"
+    "python3"
   ]
 }

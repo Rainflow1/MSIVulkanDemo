@@ -68,8 +68,8 @@ public:
         deviceFeatures.samplerAnisotropy = VK_TRUE;
         createInfo.pEnabledFeatures = &deviceFeatures;
 
-        if (vkCreateDevice(*physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create logical device!");
+        if (VkResult errCode = vkCreateDevice(*physicalDevice, &createInfo, nullptr, &device); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create logical device: {}", static_cast<int>(errCode)));
         }
 
        

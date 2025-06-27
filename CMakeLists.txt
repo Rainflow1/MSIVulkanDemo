@@ -17,6 +17,8 @@ find_package(Stb REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(nfd REQUIRED)
 find_package(pybind11 REQUIRED)
+find_package(Python3 COMPONENTS Development REQUIRED)
+
 
 add_executable(MSIVulkanDemo src/main.cpp)
 
@@ -34,6 +36,7 @@ target_include_directories(MSIVulkanDemo PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 target_include_directories(MSIVulkanDemo PRIVATE ${Stb_INCLUDE_DIR})
 target_link_libraries(MSIVulkanDemo nlohmann_json::nlohmann_json)
 target_link_libraries(MSIVulkanDemo nfd::nfd)
+target_link_libraries(MSIVulkanDemo Python3::Python)
 target_link_libraries(MSIVulkanDemo pybind11::embed)
 
 add_custom_target(copy_shaders
@@ -83,3 +86,23 @@ add_custom_target(copy_imgui_config
     COMMENT "Copying imgui config"
 )
 add_dependencies(MSIVulkanDemo copy_imgui_config)
+
+add_custom_target(copy_python_stdlib
+	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different 
+        "${CMAKE_CURRENT_SOURCE_DIR}/PythonStdLib/"
+        "$<TARGET_FILE_DIR:MSIVulkanDemo>/Lib"
+    COMMENT "Copying python stdlib"
+)
+add_dependencies(MSIVulkanDemo copy_python_stdlib)
+
+
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(BUILD_TYPE_DEFINE "DEBUG")
+endif()
+    
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(BUILD_TYPE_DEFINE "RELEASE")
+endif()
+
+add_compile_definitions(${BUILD_TYPE_DEFINE})

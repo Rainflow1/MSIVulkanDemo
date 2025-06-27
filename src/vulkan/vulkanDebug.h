@@ -22,8 +22,8 @@ namespace MSIVulkanDemo{
 
             VkDebugUtilsMessengerCreateInfoEXT createInfo = getDebugMessangerCreateInfo();
     
-            if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-                throw std::runtime_error("failed to set up debug messenger!");
+            if (VkResult errCode = CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger); errCode != VK_SUCCESS) {
+                throw std::runtime_error(std::format("failed to set up debug messenger: {}", static_cast<int>(errCode)));
             }
         }
 

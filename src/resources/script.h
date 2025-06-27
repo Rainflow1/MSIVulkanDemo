@@ -336,7 +336,7 @@ private:
         std::ifstream file(path, std::ios::ate);
 
         if (!file.is_open()) {
-            throw std::runtime_error("failed to open file!");
+            throw std::runtime_error("failed to open file: " + path);
         }
 
         size_t fileSize = (size_t) file.tellg();

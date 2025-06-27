@@ -43,8 +43,8 @@ public:
         allocatorCreateInfo.device = *device;
         allocatorCreateInfo.instance = device->getPhysicalDevice().getInstance();
         
-        if (vmaCreateAllocator(&allocatorCreateInfo, &allocator) != VK_SUCCESS) {
-            throw std::runtime_error("failed to initialize VMA Allocator!");
+        if (VkResult errCode = vmaCreateAllocator(&allocatorCreateInfo, &allocator); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to initialize VMA Allocator: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -99,8 +99,8 @@ public:
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
         allocInfo.flags = properties;
         
-        if (vmaCreateBuffer(*allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &allocationInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create Buffer!");
+        if (VkResult errCode = vmaCreateBuffer(*allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &allocationInfo); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create Buffer: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -555,8 +555,8 @@ public:
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = layerCount;
 
-        if (vkCreateImageView(*image->getDevice(), &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
+        if(VkResult errCode = vkCreateImageView(*image->getDevice(), &createInfo, nullptr, &imageView); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create image views: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -582,8 +582,8 @@ public:
         image->resize(resolution);
         createInfo.image = *image;
 
-        if (vkCreateImageView(*image->getDevice(), &createInfo, nullptr, &imageView) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
+        if (VkResult errCode = vkCreateImageView(*image->getDevice(), &createInfo, nullptr, &imageView); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create image views: {}", static_cast<int>(errCode)));
         }
     }
 

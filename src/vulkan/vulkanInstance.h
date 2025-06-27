@@ -60,8 +60,8 @@ public:
             createInfo.pNext = nullptr;
         }
 
-        if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create instance!");
+        if (VkResult res = vkCreateInstance(&createInfo, nullptr, &instance); res != VK_SUCCESS) {
+            throw std::runtime_error("failed to create instance: " + res);
         }
 
         EnumerateVulkanExtensions();

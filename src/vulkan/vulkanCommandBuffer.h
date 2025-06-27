@@ -39,8 +39,8 @@ public:
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-        if (vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create command pool!");
+        if (VkResult errCode = vkCreateCommandPool(*device, &poolInfo, nullptr, &commandPool); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create command pool: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -100,8 +100,8 @@ public:
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(*commandPool->getDevice(), &allocInfo, &commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate command buffers!");
+        if (VkResult errCode = vkAllocateCommandBuffers(*commandPool->getDevice(), &allocInfo, &commandBuffer); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to allocate command buffers: {}", static_cast<int>(errCode)));
         }
 
         uniformBuffer = commandPool->getDevice()->createMemoryManager()->createBuffer<VulkanUniformBuffer>(commandPool->getDevice()->createDescriptorPool(), 1024 * 1024);
@@ -136,8 +136,8 @@ public:
         beginInfo.flags = flags;
         beginInfo.pInheritanceInfo = nullptr; // Optional
 
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to begin recording command buffer!");
+        if (VkResult errCode = vkBeginCommandBuffer(commandBuffer, &beginInfo); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to begin recording command buffer: {}", static_cast<int>(errCode)));
         }
 
         state = CommandBufferState::Recording;
@@ -309,8 +309,8 @@ public:
             endRenderPass();
         }
 
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to record command buffer!");
+        if (VkResult errCode = vkEndCommandBuffer(commandBuffer); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to record command buffer: {}", static_cast<int>(errCode)));
         }
 
         state = CommandBufferState::Pending;
@@ -365,8 +365,8 @@ public:
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        if (vkQueueSubmit(commandPool->getDevice()->getGraphicsQueue(), 1, &submitInfo, fence) != VK_SUCCESS) {
-            throw std::runtime_error("failed to submit draw command buffer!");
+        if (VkResult errCode = vkQueueSubmit(commandPool->getDevice()->getGraphicsQueue(), 1, &submitInfo, fence); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to submit draw command buffer: {}", static_cast<int>(errCode)));
         }
 
         state = CommandBufferState::Initial;
@@ -391,8 +391,8 @@ public:
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        if (vkQueueSubmit(commandPool->getDevice()->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-            throw std::runtime_error("failed to submit draw command buffer!");
+        if (VkResult errCode = vkQueueSubmit(commandPool->getDevice()->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to submit draw command buffer: {}", static_cast<int>(errCode)));
         }
         vkQueueWaitIdle(commandPool->getDevice()->getGraphicsQueue()); // TODO add optional bool
 

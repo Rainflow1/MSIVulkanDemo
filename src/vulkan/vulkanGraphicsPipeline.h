@@ -103,8 +103,8 @@ public:
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional
 
-        if (vkCreateGraphicsPipelines(*renderPass->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create graphics pipeline!");
+        if (VkResult errCode = vkCreateGraphicsPipelines(*renderPass->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create graphics pipeline: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -293,8 +293,8 @@ private:
             pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
             pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-            if (vkCreatePipelineLayout(*swapChain.getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create pipeline layout!");
+            if (VkResult errCode = vkCreatePipelineLayout(*swapChain.getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout); errCode != VK_SUCCESS) {
+                throw std::runtime_error(std::format("failed to create pipeline layout: {}", static_cast<int>(errCode)));
             }
         }
     };

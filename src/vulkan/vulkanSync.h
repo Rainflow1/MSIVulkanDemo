@@ -25,8 +25,8 @@ public:
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-        if(vkCreateSemaphore(*device, &semaphoreInfo, nullptr, &semaphore) != VK_SUCCESS){
-            throw std::runtime_error("failed to create semaphore!");
+        if(VkResult errCode = vkCreateSemaphore(*device, &semaphoreInfo, nullptr, &semaphore); errCode != VK_SUCCESS){
+            throw std::runtime_error(std::format("failed to create semaphore: {}", static_cast<int>(errCode)));
         }
     }
 
@@ -55,8 +55,8 @@ public:
         if(initSignaled)
             fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        if(vkCreateFence(*device, &fenceInfo, nullptr, &fence) != VK_SUCCESS){
-            throw std::runtime_error("failed to create fence!");
+        if(VkResult errCode = vkCreateFence(*device, &fenceInfo, nullptr, &fence); errCode != VK_SUCCESS){
+            throw std::runtime_error(std::format("failed to create fence: {}", static_cast<int>(errCode)));
         }
 
     }

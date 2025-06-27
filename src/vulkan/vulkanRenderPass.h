@@ -97,8 +97,8 @@ public:
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        if (vkCreateRenderPass(*swapChain->getDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create render pass!");
+        if (VkResult errCode = vkCreateRenderPass(*swapChain->getDevice(), &renderPassInfo, nullptr, &renderPass); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create render pass: {}", static_cast<int>(errCode)));
         }
 
         for(auto image : swapChain->getSwapChainImageViews()){

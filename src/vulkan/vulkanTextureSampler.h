@@ -46,8 +46,8 @@ public:
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
 
-        if (vkCreateSampler(*device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create texture sampler!");
+        if (VkResult errCode = vkCreateSampler(*device, &samplerInfo, nullptr, &textureSampler); errCode != VK_SUCCESS) {
+            throw std::runtime_error(std::format("failed to create texture sampler: {}", static_cast<int>(errCode)));
         }
     }
 
