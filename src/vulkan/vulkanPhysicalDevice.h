@@ -175,6 +175,10 @@ public:
         return properties;
     }
 
+    VkPhysicalDeviceLimits getDeviceLimits(){
+        return getProperties().limits;
+    }
+
 private:
     bool isDeviceSuitable(VkPhysicalDevice device) {
         VkPhysicalDeviceProperties properties;

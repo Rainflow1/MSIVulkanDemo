@@ -29,7 +29,9 @@ layout(location = 0) out vec4 outColor;
 layout(binding = 1) uniform samplerCube Skybox;
 
 void main() {
-    outColor = texture(Skybox, texCoords);
+    vec3 coords = texCoords;
+    coords.x = -coords.x;
+    outColor = texture(Skybox, coords);
 }
 
 #endif

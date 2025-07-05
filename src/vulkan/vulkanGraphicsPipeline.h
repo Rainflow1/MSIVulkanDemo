@@ -92,8 +92,8 @@ public:
         pipelineInfo.subpass = 0;
 
 
-        vertexUniforms.reset(vertShader->getUniformData());
-        fragmentUniforms.reset(fragShader->getUniformData());
+        vertexUniforms.reset(new VulkanUniformData(vertShader->getUniformData(), renderPass->getDevice()->getPhysicalDevice().getDeviceLimits().minUniformBufferOffsetAlignment));
+        fragmentUniforms.reset(new VulkanUniformData(fragShader->getUniformData(), renderPass->getDevice()->getPhysicalDevice().getDeviceLimits().minUniformBufferOffsetAlignment));
         std::vector<std::shared_ptr<VulkanUniformLayout>> uniformLayouts = {(*vertexUniforms + *fragmentUniforms).getUniformLayout(renderPass->getDevice())};
 
         PipelineLayout pipeline = PipelineLayout(*renderPass->getSwapChain(), uniformLayouts);

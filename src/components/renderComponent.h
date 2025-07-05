@@ -15,7 +15,7 @@ private:
     
 
 public: 
-    RenderComponent(){
+    RenderComponent(ComponentParams& params): Component(params){
 
     }
 

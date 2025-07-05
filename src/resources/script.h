@@ -22,7 +22,9 @@ class Behaviour{
 
 public:
     std::shared_ptr<MSIVulkanDemo::GameObject> gameObject;
-    std::vector<py::object> properties;
+    std::map<std::string, py::object> properties;
+    std::vector<py::object> propertiesQueue;
+    bool isStarted = false;
 
     Behaviour(){
 
@@ -40,14 +42,14 @@ public:
         
         py::object newObj = T(defaultValue);
 
-        properties.push_back(newObj);
+        propertiesQueue.push_back(newObj);
 
         return newObj;
     }
 
     py::object property(py::object obj){
 
-        properties.push_back(obj);
+        propertiesQueue.push_back(obj);
 
         return obj;
     }
@@ -63,6 +65,24 @@ public:
         }
         
         return py::none();
+    }
+
+
+
+    std::map<std::string, py::object> getProperties(){
+        return properties;
+    }
+
+    bool hasProperty(std::string name){
+        return properties.contains(name);
+    }
+
+    template<class T>
+    void setProperty(std::string name, T val){
+        if(hasProperty(name) && py::type::of(properties.at(name)) == py::type::of<T>()){
+            T* objPtr = properties.at(name).cast<T*>();
+            *objPtr = val;
+        }
     }
 
 };
@@ -94,11 +114,15 @@ public:
 class ObjectRef : Behaviour{
 public:
     ObjectRef(){
-        std::shared_ptr<MSIVulkanDemo::GameobjectManagerI> tak;
+        //std::shared_ptr<MSIVulkanDemo::GameobjectManagerI> tak;
     }
 
     ObjectRef(py::none){
         
+    }
+
+    ObjectRef(const ObjectRef& copy){
+        gameObject = copy.gameObject;
     }
 
     ObjectRef(std::shared_ptr<MSIVulkanDemo::GameObject> obj){
@@ -123,7 +147,33 @@ public:
     
 };
 
-class PyString : public std::string{
+class PyString{
+public:
+    std::string data;
+
+    PyString(){
+        data = "";
+    }
+
+    PyString(std::string str){
+        data = str;
+    }
+
+    PyString(py::str str){
+        data = str;
+    }
+
+    PyString(const PyString& str){
+        data = str.data;
+    }
+
+    operator std::string() const {
+        return data;
+    }
+
+    std::string str() const{
+        return data;
+    }
 
 };
 
@@ -159,8 +209,6 @@ PYBIND11_EMBEDDED_MODULE(MSIVulkanDemo, m) {
     py::implicitly_convertible<std::tuple<float, float, float>, glm::vec3>();
 
     py::class_<MSIVulkanDemo::TransformComponent>(m, "TransformComponent")
-        .def(py::init<>())
-        .def(py::init<glm::vec3, glm::vec3, glm::vec3>())
         .def("setPosition", &MSIVulkanDemo::TransformComponent::setPosition)
         .def("getPosition", &MSIVulkanDemo::TransformComponent::getPosition)
         .def("setRotation", &MSIVulkanDemo::TransformComponent::setRotation)
@@ -171,11 +219,11 @@ PYBIND11_EMBEDDED_MODULE(MSIVulkanDemo, m) {
     py::class_<MSIVulkanDemo::MaterialComponent>(m, "MaterialComponent")
         .def("hasUniform", &MSIVulkanDemo::MaterialComponent::hasUniform)
         .def("hasUniform", [](MSIVulkanDemo::MaterialComponent& mat, const PyString& a){
-            return mat.hasUniform(a.c_str());
+            return mat.hasUniform(a.str().c_str());
         })
         .def("setUniform", &MSIVulkanDemo::MaterialComponent::setUniform<glm::vec3>)
         .def("setUniform", [](MSIVulkanDemo::MaterialComponent& mat, const PyString& a, const glm::vec3& b){
-            return mat.setUniform(a.c_str(), b);
+            return mat.setUniform(a.str().c_str(), b);
         });
 
     py::class_<ObjectRef>(m, "ObjectRef")
@@ -189,10 +237,13 @@ PYBIND11_EMBEDDED_MODULE(MSIVulkanDemo, m) {
     py::class_<PyString>(m, "String")
         .def(py::init<>())
         .def(py::init<std::string>())
+        .def(py::init<PyString>())
         .def("__str__", [](const PyString &a){
-            return static_cast<std::string>(a);
+            return a.str();
         }, py::is_operator());
 
+    py::implicitly_convertible<std::string, PyString>();
+    py::implicitly_convertible<py::str, PyString>();
 
 }
 
@@ -206,11 +257,8 @@ class Script : public Resource{
 
 private:
     std::string source;
-    std::string scriptName;
-    std::vector<py::object> behaviours;
-
-    //std::map<std::string, std::pair<PropertyType, std::any>> propierties;
-    std::map<std::string, std::any> properties; // FIXME to component
+    std::map<std::string, py::type> behaviours;
+    //std::map<std::string, std::vector<std::pair<std::string, py::object>>> properties;
 
     bool started = false;
 
@@ -230,11 +278,8 @@ public:
             for(auto [key, value] : localScope){
 
                 if(py::isinstance<py::type>(value) && value.attr("__bases__").contains(localScope["Behaviour"])){
-                    behaviours.push_back(value());
-
-                    if(scriptName.empty()){
-                        scriptName = py::cast<std::string>(key);
-                    }
+                    behaviours.insert({py::cast<std::string>(key), value.cast<py::type>()});
+                    //properties.insert({py::cast<std::string>(key), {}});
                 }
                 
             }
@@ -248,83 +293,11 @@ public:
 
     ~Script(){}
 
-    void start(std::shared_ptr<GameObject> gameObject){
 
-        started = true;
-
-        for(auto obj : behaviours){
-            try{
-                obj.cast<PythonBindings::Behaviour*>()->gameObject = gameObject;
-                obj.attr("start")();
-
-                for(const auto handle : obj.attr("__dict__")){
-                    py::object objCast = obj.attr(handle);
-                    for(const auto prop : obj.cast<PythonBindings::Behaviour*>()->properties){
-                        if(objCast.is(prop)){
-                            //TODO to typelist
-                            if(py::isinstance<PythonBindings::ObjectRef>(prop)){ 
-                                properties.insert({py::cast<std::string>(handle), std::any(py::cast<PythonBindings::ObjectRef*>(prop))});
-                            }
-                            else if(py::isinstance<glm::vec3>(prop)){ 
-                                properties.insert({py::cast<std::string>(handle), std::any(py::cast<glm::vec3*>(prop))});
-                            }
-                            else if(py::isinstance<PythonBindings::PyString>(prop)){ 
-                                properties.insert({py::cast<std::string>(handle), std::any(static_cast<std::string*>(py::cast<PythonBindings::PyString*>(prop)))});
-                            }
-                            else{
-                                py::print(py::str("Unsupported property type: ") + py::str(py::type::of(prop)));
-                            }
-                        }
-                    }
-                }
-
-            }catch(py::error_already_set e){
-                std::cout << "Python error: " << std::endl;
-                std::cout << e.what() << std::endl;
-            }
-        }
-
+    std::map<std::string, py::type> getBehaviours(){
+        return behaviours;
     }
 
-    void update(float deltatime){
-
-        for(auto obj : behaviours){
-            try{
-                obj.attr("update")(deltatime);
-            }catch(py::error_already_set e){
-                std::cout << "Python error: " << std::endl;
-                std::cout << e.what() << std::endl;
-            }
-        }
-
-    }
-
-    bool isStarted(){
-        return started;
-    }
-
-    std::string getName(){
-        return scriptName;
-    }
-
-    std::vector<std::pair<std::string, std::any>> getProperties(){
-        std::vector<std::pair<std::string, std::any>> props;
-
-        std::copy(properties.begin(), properties.end(), std::back_inserter(props));
-
-        return props;
-    }
-
-    bool hasProperty(std::string name){
-        return properties.contains(name);
-    }
-
-    template<class T>
-    void setProperty(std::string name, T val){
-        if(hasProperty(name) && properties.at(name).type() == typeid(T)){
-            properties.at(name) = std::make_any<T>(val);
-        }
-    }
 
 private:
 

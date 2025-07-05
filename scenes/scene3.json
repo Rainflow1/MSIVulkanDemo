@@ -1,0 +1,995 @@
+{
+  "scene": {
+    "objects": {
+      "MainCamera": {
+        "components": [
+          {
+            "data": {
+              "position": [
+                0.2745163142681122,
+                2.001857042312622,
+                -3.512939691543579
+              ],
+              "rotation": [
+                0.18587268888950348,
+                -0.2907029390335083,
+                0.9385856986045837
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::CameraComponent"
+          }
+        ]
+      },
+      "Object2": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/cubeuv.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                0.5,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.10000000149011612,
+                0.10000000149011612,
+                0.10000000149011612
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/default.glsl",
+              "textures": {
+                "tex": [
+                  "./textures/NoTexture.jpg"
+                ]
+              },
+              "uniforms": {
+                "_model": [
+                  0.10000000149011612,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.10000000149011612,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.10000000149011612,
+                  0.0,
+                  0.5,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "color": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          }
+        ]
+      },
+      "Skybox": {
+        "components": [
+          {
+            "data": {
+              "mesh": "./models/cubemap.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/skybox.glsl",
+              "textures": {
+                "Skybox": [
+                  "./textures/mrzezinoSkybox/px.png",
+                  "./textures/mrzezinoSkybox/nx.png",
+                  "./textures/mrzezinoSkybox/py.png",
+                  "./textures/mrzezinoSkybox/ny.png",
+                  "./textures/mrzezinoSkybox/pz.png",
+                  "./textures/mrzezinoSkybox/nz.png"
+                ]
+              },
+              "uniforms": {
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          }
+        ]
+      },
+      "gouraudPhong": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/sphereHighpoly.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                2.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.25,
+                0.25,
+                0.25
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/gouraudPhongLighting.glsl",
+              "textures": {},
+              "uniforms": {
+                "_model": [
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  2.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "_viewPos": [
+                  0.2745163142681122,
+                  2.001857042312622,
+                  -3.512939691543579
+                ],
+                "ambient": [
+                  1.0,
+                  0.5,
+                  0.5
+                ],
+                "diffuse": [
+                  0.0,
+                  0.0,
+                  0.10000000149011612
+                ],
+                "lightPos": [
+                  -7.647032737731934,
+                  5.0,
+                  6.443825721740723
+                ],
+                "shininess": [
+                  64.0
+                ],
+                "specular": [
+                  1.0,
+                  1.0,
+                  0.5
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "BindToUniform": {
+                  "bindedObj": {
+                    "type": "object",
+                    "value": "light source"
+                  },
+                  "uniformName": {
+                    "type": "string",
+                    "value": "lightPos\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+                  }
+                }
+              },
+              "scripts": [
+                "scripts\\bindToUniform.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      },
+      "light source": {
+        "components": [
+          {
+            "data": {
+              "position": [
+                -7.563546657562256,
+                5.0,
+                6.541617393493652
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.5,
+                0.5,
+                0.5
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "Circle": {
+                  "offset": {
+                    "type": "vec3",
+                    "value": [
+                      0.0,
+                      5.0,
+                      0.0
+                    ]
+                  },
+                  "point": {
+                    "type": "object",
+                    "value": "Null"
+                  }
+                }
+              },
+              "scripts": [
+                "./scripts/circle.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      },
+      "pbr": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/sphereHighpoly.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                0.0,
+                0.0,
+                2.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.25,
+                0.25,
+                0.25
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/PBRLighting.glsl",
+              "textures": {
+                "Skybox": [
+                  "./textures/mrzezinoSkybox/px.png",
+                  "./textures/mrzezinoSkybox/nx.png",
+                  "./textures/mrzezinoSkybox/py.png",
+                  "./textures/mrzezinoSkybox/ny.png",
+                  "./textures/mrzezinoSkybox/pz.png",
+                  "./textures/mrzezinoSkybox/nz.png"
+                ]
+              },
+              "uniforms": {
+                "_model": [
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  2.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "_viewPos": [
+                  0.2745163142681122,
+                  2.001857042312622,
+                  -3.512939691543579
+                ],
+                "inAlbedo": [
+                  0.0,
+                  1.0,
+                  0.20000000298023224
+                ],
+                "inMetallic": [
+                  0.5
+                ],
+                "inReflectance": [
+                  0.75
+                ],
+                "inRoughness": [
+                  0.5
+                ],
+                "lightPos": [
+                  -7.647032737731934,
+                  5.0,
+                  6.443825721740723
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "BindToUniform": {
+                  "bindedObj": {
+                    "type": "object",
+                    "value": "light source"
+                  },
+                  "uniformName": {
+                    "type": "string",
+                    "value": "lightPos\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+                  }
+                }
+              },
+              "scripts": [
+                "scripts\\bindToUniform.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      },
+      "pbrTex": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/torusHighpoly.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.5,
+                0.5,
+                0.5
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/PBRLightingTexture.glsl",
+              "textures": {
+                "Skybox": [
+                  "./textures/mrzezinoSkybox/px.png",
+                  "./textures/mrzezinoSkybox/nx.png",
+                  "./textures/mrzezinoSkybox/py.png",
+                  "./textures/mrzezinoSkybox/ny.png",
+                  "./textures/mrzezinoSkybox/pz.png",
+                  "./textures/mrzezinoSkybox/nz.png"
+                ],
+                "albedoTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_albedo.png"
+                ],
+                "aoTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_ao.png"
+                ],
+                "heightTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_height.png"
+                ],
+                "metallicTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_metallic.png"
+                ],
+                "normTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_normal-ogl.png"
+                ],
+                "roughnessTex": [
+                  "./textures/fancy-scaled-gold-bl/fancy-scaled-gold_roughness.png"
+                ]
+              },
+              "uniforms": {
+                "_model": [
+                  0.5,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.5,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.5,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "_viewPos": [
+                  0.2745163142681122,
+                  2.001857042312622,
+                  -3.512939691543579
+                ],
+                "lightPos": [
+                  -7.647032737731934,
+                  5.0,
+                  6.443825721740723
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "BindToUniform": {
+                  "bindedObj": {
+                    "type": "object",
+                    "value": "light source"
+                  },
+                  "uniformName": {
+                    "type": "string",
+                    "value": "lightPos\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+                  }
+                }
+              },
+              "scripts": [
+                "scripts\\bindToUniform.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      },
+      "phong": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/cube.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.25,
+                0.25,
+                0.25
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/phongLighting.glsl",
+              "textures": {},
+              "uniforms": {
+                "_model": [
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "_viewPos": [
+                  0.2745163142681122,
+                  2.001857042312622,
+                  -3.512939691543579
+                ],
+                "ambient": [
+                  1.0,
+                  0.0,
+                  0.3100000023841858
+                ],
+                "diffuse": [
+                  1.0,
+                  1.0,
+                  0.3100000023841858
+                ],
+                "lightPos": [
+                  -7.647032737731934,
+                  5.0,
+                  6.443825721740723
+                ],
+                "shininess": [
+                  32.0
+                ],
+                "specular": [
+                  0.0,
+                  0.5,
+                  0.5
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "BindToUniform": {
+                  "bindedObj": {
+                    "type": "object",
+                    "value": "light source"
+                  },
+                  "uniformName": {
+                    "type": "string",
+                    "value": "lightPos\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+                  }
+                }
+              },
+              "scripts": [
+                "scripts\\bindToUniform.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      },
+      "phongTex": {
+        "components": [
+          {
+            "data": null,
+            "type": "class MSIVulkanDemo::RenderComponent"
+          },
+          {
+            "data": {
+              "mesh": "./models/cubeuv.glb"
+            },
+            "type": "class MSIVulkanDemo::ModelComponent"
+          },
+          {
+            "data": {
+              "position": [
+                2.0,
+                0.0,
+                1.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                0.25,
+                0.25,
+                0.25
+              ]
+            },
+            "type": "class MSIVulkanDemo::TransformComponent"
+          },
+          {
+            "data": {
+              "shader": "./shaders/phongLightingTexture.glsl",
+              "textures": {
+                "tex": [
+                  "./textures/Tiles.jpg"
+                ]
+              },
+              "uniforms": {
+                "_model": [
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.25,
+                  0.0,
+                  2.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "_proj": [
+                  1.3579951524734497,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -2.4142134189605713,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  -1.000100016593933,
+                  -1.0,
+                  0.0,
+                  0.0,
+                  -0.10001000016927719,
+                  0.0
+                ],
+                "_view": [
+                  -0.9809496402740479,
+                  0.056472599506378174,
+                  -0.18587270379066467,
+                  0.0,
+                  0.0,
+                  0.956813395023346,
+                  0.2907029390335083,
+                  0.0,
+                  0.19426222145557404,
+                  0.2851649522781372,
+                  -0.9385857582092285,
+                  0.0,
+                  0.9517181515693665,
+                  -0.9291390180587769,
+                  -3.828115940093994,
+                  1.0
+                ],
+                "_viewPos": [
+                  0.2745163142681122,
+                  2.001857042312622,
+                  -3.512939691543579
+                ],
+                "ambient": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "diffuse": [
+                  1.0,
+                  0.5,
+                  0.3100000023841858
+                ],
+                "lightPos": [
+                  -7.647032737731934,
+                  5.0,
+                  6.443825721740723
+                ],
+                "shininess": [
+                  32.0
+                ],
+                "specular": [
+                  1.0,
+                  0.0,
+                  1.0
+                ]
+              }
+            },
+            "type": "class MSIVulkanDemo::MaterialComponent"
+          },
+          {
+            "data": {
+              "properties": {
+                "BindToUniform": {
+                  "bindedObj": {
+                    "type": "object",
+                    "value": "light source"
+                  },
+                  "uniformName": {
+                    "type": "string",
+                    "value": "lightPos\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+                  }
+                }
+              },
+              "scripts": [
+                "scripts\\bindToUniform.py"
+              ]
+            },
+            "type": "class MSIVulkanDemo::ScriptComponent"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 #include <GLFW/glfw3.h>
 
+#define NFD_OVERRIDE_RECENT_WITH_DEFAULT
 #include <nfd_glfw3.h>
 #include <nfd.hpp>
 
@@ -43,12 +44,14 @@ public:
         return *singleton;
     }
 
-    std::string savePath(std::string defaultName){
+    std::string savePath(std::string defaultName, std::string defaultPath = "./"){
         std::string path;
         nfdu8char_t *outPath;
         nfdsavedialogu8args_t args = {0};
         args.parentWindow = NFDWINDOW;
         args.defaultName = defaultName.c_str();
+        std::string absDefPath = std::filesystem::absolute(defaultPath).string();
+        args.defaultPath = absDefPath.c_str();
 
         nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
 
@@ -58,17 +61,20 @@ public:
         }else if (result == NFD_CANCEL){
             path = "";
         }else{
+            std::cout << "FileDialog error" << std::endl;
             path = "";
         }
 
-        return path;
+        return std::filesystem::relative(path).string();
     }
 
-    std::string getPath(){
+    std::string getPath(std::string defaultPath = "./"){
         std::string path;
         nfdu8char_t *outPath;
         nfdopendialogu8args_t args = {0};
         args.parentWindow = NFDWINDOW;
+        std::string absDefPath = std::filesystem::absolute(defaultPath).string();
+        args.defaultPath = absDefPath.c_str();
 
         nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
 
@@ -78,17 +84,20 @@ public:
         }else if (result == NFD_CANCEL){
             path = "";
         }else{
+            std::cout << "FileDialog error" << std::endl;
             path = "";
         }
 
-        return path;
+        return std::filesystem::relative(path).string();
     }
 
-    std::string getPaths(){
+    std::string getPaths(std::string defaultPath = "./"){
         std::string path = "";
         const nfdpathset_t *outPaths;
         nfdopendialogu8args_t args = {0};
         args.parentWindow = NFDWINDOW;
+        std::string absDefPath = std::filesystem::absolute(defaultPath).string();
+        args.defaultPath = absDefPath.c_str();
 
         nfdresult_t result = NFD_OpenDialogMultipleU8_With(&outPaths, &args);
 
@@ -101,7 +110,7 @@ public:
                 nfdchar_t* outPath;
                 NFD_PathSet_GetPath(outPaths, i, &outPath);
 
-                path += std::string(outPath) + ";";
+                path += std::filesystem::relative(std::string(outPath)).string() + ";";
 
                 NFD_PathSet_FreePath(outPath);
             }
@@ -110,6 +119,7 @@ public:
         }else if (result == NFD_CANCEL){
             path = "";
         }else{
+            std::cout << "FileDialog error" << std::endl;
             path = "";
         }
 

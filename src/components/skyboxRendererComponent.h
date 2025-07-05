@@ -14,7 +14,7 @@ private:
     
 
 public: 
-    SkyboxRendererComponent(){
+    SkyboxRendererComponent(ComponentParams& params): Component(params){
 
     }
 

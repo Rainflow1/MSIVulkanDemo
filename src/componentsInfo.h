@@ -16,8 +16,8 @@ template<typename ... components> struct componentlist{
         "All components must be derivied from Component class"
     );
     static_assert(
-        ((std::is_constructible_v<components, std::shared_ptr<ResourceManager>> || std::is_constructible_v<components>) && ...), 
-        "All components must be constructible with ptr to ResourceManager or default constructible"
+        ((std::is_constructible_v<components, ComponentParams&>) && ...), 
+        "All components must be constructible with components params"
     );
 };
 using AllComponents = componentlist<RenderComponent, ModelComponent, TransformComponent, MaterialComponent, CameraComponent, SkyboxRendererComponent, ScriptComponent>;

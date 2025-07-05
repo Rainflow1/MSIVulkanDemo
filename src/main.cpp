@@ -8,10 +8,10 @@ int main(){
         app.run();
     }catch(const std::exception& e){
         std::cerr << e.what() << '\n';
+#ifdef RELEASE
+        system("pause");
+#endif
     }
 
-#ifdef RELEASE
-    system("pause");
-#endif
     return 0;
 }

@@ -12,42 +12,74 @@ namespace MSIVulkanDemo{
 
 class ScriptComponent : public Component{
 private:
-    std::vector<std::shared_ptr<Script>> scripts;
+    std::vector<std::shared_ptr<Script>> scriptFiles;
+
+    std::map<std::string, py::object> scripts;
 
 public:
-    ScriptComponent(){
+    ScriptComponent(ComponentParams& params) : Component(params){
         
     }
 
-    ScriptComponent(std::shared_ptr<ResourceManager> resMgr) : Component(resMgr){
-        
-    }
-
-    ScriptComponent(std::shared_ptr<Script> script){
+    ScriptComponent(ComponentParams& params, std::shared_ptr<Script> script) : Component(params){
         addScript(script);
     }
 
     void addScript(std::shared_ptr<Script> script){
-        scripts.push_back(script);
-    }
+        scriptFiles.push_back(script);
+        
+        for(const auto& [name, behaviour] : script->getBehaviours()){
+            try{
+                scripts.insert({name, behaviour()});
+                auto scr = scripts.at(name);
 
+                auto objCast = scr.cast<PythonBindings::Behaviour*>();
+                if(!objCast->isStarted){
+                    objCast->isStarted = true;
+                    objCast->gameObject = owner.lock();
+                    scr.attr("start")();
+
+                    for(const auto handle : scr.attr("__dict__")){
+                        py::object objProp = scr.attr(handle);
+                        for(auto& prop : objCast->propertiesQueue){
+                            if(objProp.is(prop)){
+                                objCast->properties.insert({handle.cast<std::string>(), prop});
+                                break;
+                            }
+                        }
+                    }
+                }
+
+            }catch(py::error_already_set e){
+                std::cout << "Python error in " << name << ": " << std::endl;
+                std::cout << e.what() << std::endl;
+            }
+        }
+    }
+/*
     std::shared_ptr<Script> getScript(std::string name){
-        for(auto& script : scripts){
-            if(script->getName() == name){
-                return script;
+        for(const auto& scriptFile : scriptFiles){
+            for(const auto& [behName, script] : scriptFile->getBehaviours()){
+                if(behName == name){
+                    return script;
+                }
             }
         }
         return nullptr;
     }
-
+*/
     void execUpdate(float deltatime){
 
-        for(auto script : scripts){
-            if(!script->isStarted()){
-                script->start(owner.lock());
-            }
+        for(auto [name, script] : scripts){
 
-            script->update(deltatime);
+            try{
+                
+                script.attr("update")(deltatime);
+
+            }catch(py::error_already_set e){
+                std::cout << "Python error in " << name << ": " << std::endl;
+                std::cout << e.what() << std::endl;
+            }
         }
     }
 
@@ -59,21 +91,23 @@ public:
 
             const float step = 0.1f;
 
-            for(const auto script : scripts){
-                ImGui::SeparatorText((script->getName()).c_str());
+            for(const auto& [name, script] : scripts){
 
-                ImGui::Text("Propertiers: ");
-                for(const auto [name, property] : script->getProperties()){
+                ImGui::SeparatorText((name).c_str());
+
+                ImGui::Text("Properties: ");
+                for(const auto [propName, property] : script.cast<PythonBindings::Behaviour*>()->getProperties()){
                     ImGui::Separator();
-                    if(property.type() == typeid(glm::vec3*)){
-                        ImGui::DragFloat3(name.c_str(), glm::value_ptr(*std::any_cast<glm::vec3*>(property)), step);
+
+                    if(py::type::of(property) == py::type::of<glm::vec3>()){
+                        ImGui::DragFloat3(propName.c_str(), glm::value_ptr(*property.cast<glm::vec3*>()), step);
                     }
                     
-                    if(property.type() == typeid(std::string*)){
+                    if(py::type::of(property) == py::type::of<PythonBindings::PyString>()){
 
-                        std::string* strBuf = std::any_cast<std::string*>(property);
+                        PythonBindings::PyString* strBuf = static_cast<PythonBindings::PyString*>(property.cast<PythonBindings::PyString*>());
 
-                        ImGui::InputText(name.c_str(), strBuf->data(), strBuf->capacity(), ImGuiInputTextFlags_CallbackResize, [](ImGuiInputTextCallbackData* data) -> int{
+                        ImGui::InputText(propName.c_str(), strBuf->str().data(), strBuf->str().capacity(), ImGuiInputTextFlags_CallbackResize, [](ImGuiInputTextCallbackData* data) -> int{
                             if (data->EventFlag == ImGuiInputTextFlags_CallbackResize){
                                 std::string* my_str = static_cast<std::string*>(data->UserData);
                                 my_str->resize(data->BufSize);
@@ -84,13 +118,13 @@ public:
 
                     }
 
-                    if(property.type() == typeid(PythonBindings::ObjectRef*)){
-                        ImGui::Text((name + ": ").c_str());
+                    if(py::type::of(property) == py::type::of<PythonBindings::ObjectRef>()){
+                        ImGui::Text((propName + ": ").c_str());
                         ImGui::SameLine();
 
-                        PythonBindings::ObjectRef* objRef = std::any_cast<PythonBindings::ObjectRef*>(property);
+                        PythonBindings::ObjectRef* objRef = property.cast<PythonBindings::ObjectRef*>();
 
-                        if(ImGui::BeginCombo(("##Select object" + name).c_str(), gameobjectManager->getGameObjectName(objRef->getReference()).c_str(), ImGuiComboFlags_NoArrowButton)){
+                        if(ImGui::BeginCombo(("##Select object" + propName).c_str(), gameobjectManager->getGameObjectName(objRef->getReference()).c_str(), ImGuiComboFlags_NoArrowButton)){
                             
                             if (ImGui::Selectable("Null", objRef->getReference() == nullptr)){
                                 objRef->setReference(nullptr);
@@ -114,18 +148,19 @@ public:
                             
                             ImGui::EndCombo();
                         }
-
                     }
+
                 }
 
+                
             }
 
             ImGui::Separator();
             if(ImGui::SmallButton("Add script")){
-                auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                auto filePath = FileDialog::fileDialog().getPath();
 
                 if(!filePath.empty()){
-                    scripts.push_back(resourceManager->getResource<Script>(filePath));
+                    addScript(resourceManager->getResource<Script>(filePath));
                 }
             }
 
@@ -136,29 +171,35 @@ public:
     json saveToJson(){
         json component;
 
-        for(const auto& script : scripts){
-
+        for(const auto& [name, script] : scripts){
+            
             std::map<std::string, json> content;
 
-            for(const auto& [name, prop] : script->getProperties()){
-                
-                if(prop.type() == typeid(glm::vec3*)){
-                    glm::vec3 val = *std::any_cast<glm::vec3*>(prop);
-                    content.insert({name, {{"type", "vec3"}, {"value", {val.x, val.y, val.z}}}});
-                }
-                
-                if(prop.type() == typeid(std::string*)){
-                    std::string val = *std::any_cast<std::string*>(prop);
-                    content.insert({name, {{"type", "string"}, {"value", val}}});
+            auto objCast = script.cast<PythonBindings::Behaviour*>();
+
+            for(const auto& [propName, property] : objCast->getProperties()){
+
+                if(py::type::of(property) == py::type::of<glm::vec3>()){
+                    glm::vec3 val = *property.cast<glm::vec3*>();
+                    content.insert({propName, {{"type", "vec3"}, {"value", {val.x, val.y, val.z}}}});
                 }
 
-                if(prop.type() == typeid(PythonBindings::ObjectRef*)){
-                    PythonBindings::ObjectRef* objRef = std::any_cast<PythonBindings::ObjectRef*>(prop);
-                    content.insert({name, {{"type", "object"}, {"value", gameobjectManager->getGameObjectName(objRef->getReference())}}});
+                if(py::type::of(property) == py::type::of<PythonBindings::PyString>()){
+                    std::string val = *property.cast<PythonBindings::PyString*>();
+                    content.insert({propName, {{"type", "string"}, {"value", val}}});
+                }
+
+                if(py::type::of(property) == py::type::of<PythonBindings::ObjectRef>()){
+                    PythonBindings::ObjectRef* objRef = property.cast<PythonBindings::ObjectRef*>();
+                    content.insert({propName, {{"type", "object"}, {"value", gameobjectManager->getGameObjectName(objRef->getReference())}}});
                 }
             }
 
-            component.emplace(script->getPath(), content);
+            component["properties"][name] = content;
+        }
+
+        for(const auto& scriptFile : scriptFiles){
+            component["scripts"].push_back(scriptFile->getPath());
         }
         
         return component;
@@ -166,15 +207,30 @@ public:
 
     void loadFromJson(json obj){
 
-        for(const auto& [key, val] : obj.items()){
-            auto script = resourceManager->getResource<Script>(key);
+        for(std::string path : obj["scripts"]){
+            auto script = resourceManager->getResource<Script>(path);
             addScript(script);
-            for(const auto& [k, v] : val.items()){
-                if(v["type"] == "vec3"){
-                    auto vv = v["value"].get<std::vector<float>>();
-                    script->setProperty<glm::vec3>(k, glm::vec3(vv[0], vv[1], vv[2]));
+        }
+
+        for(const auto& [scriptName, properties] : obj["properties"].items()){
+            auto script = scripts.at(scriptName);
+            for(const auto& [propName, property] : properties.items()){
+
+                if(property["type"] == "vec3"){
+                    auto val = property["value"].get<std::vector<float>>();
+                    script.cast<PythonBindings::Behaviour*>()->setProperty<glm::vec3>(propName, glm::vec3(val[0], val[1], val[2]));
                 }
-                // TODO
+                
+                if(property["type"] == "string"){
+                    auto val = property["value"].get<std::string>();
+                    script.cast<PythonBindings::Behaviour*>()->setProperty<PythonBindings::PyString>(propName, PythonBindings::PyString(val));
+                }
+
+                if(property["type"] == "object"){
+                    auto val = property["value"].get<std::string>(); // FIXME load order dependent (getGameObject returns null)
+                    script.cast<PythonBindings::Behaviour*>()->setProperty<PythonBindings::ObjectRef>(propName, PythonBindings::ObjectRef(gameobjectManager->getGameObject(val)));
+                }
+
             }
         }
 

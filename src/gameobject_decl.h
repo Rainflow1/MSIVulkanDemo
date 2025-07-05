@@ -13,6 +13,7 @@
 namespace MSIVulkanDemo{
 
 class Component;
+class ComponentParams;
 
 class GameObject : public std::enable_shared_from_this<GameObject>, JsonI{
 
@@ -22,7 +23,7 @@ private:
 
     std::shared_ptr<ResourceManager> resourceManager;
 
-    GameobjectManagerI* gameobjectManager; // TODO ptr to shared
+    GameobjectManagerI* gameobjectManager;
 
     bool removed = false;
 
@@ -73,16 +74,16 @@ public:
 
     template<template<typename, typename...> typename TYPELIST, typename H, typename... T>
     typename std::enable_if<
-        (std::is_constructible<H, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<H>::value) 
+        (std::is_constructible_v<H, ComponentParams&>) 
         && std::is_base_of<Component, H>::value && (std::is_base_of<Component, T>::value && ...) 
-        && ( (std::is_constructible<T, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<T>::value) && ...),
+        && (std::is_constructible_v<T, ComponentParams&> && ...),
         Component&
     >::type
     inline addComponent(componentName name, TYPELIST<H, T...> list);
 
     template<template<typename> typename TYPELIST, typename H>
     typename std::enable_if<
-        (std::is_constructible<H, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<H>::value) 
+        (std::is_constructible_v<H, ComponentParams&>) 
         && std::is_base_of<Component, H>::value, 
         Component&
     >::type

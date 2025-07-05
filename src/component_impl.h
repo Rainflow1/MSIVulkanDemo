@@ -10,16 +10,11 @@
 
 namespace MSIVulkanDemo{
 
-
-Component::Component(){
-
-};
-
-Component::Component(std::shared_ptr<ResourceManager> resourceManager): resourceManager(resourceManager){
+Component::Component(ComponentParams& params): owner(params.owner), resourceManager(params.resourceManager), gameobjectManager(params.gameobjectManager){
 
 };
 
-Component::Component(Component& copy): id(copy.id), owner(copy.owner), resourceManager(resourceManager){};
+Component::Component(const Component& copy): id(copy.id), owner(copy.owner), resourceManager(resourceManager){};
 
 
 template<class T>
@@ -32,10 +27,6 @@ Component::getComponent(){
     }else{
         throw std::runtime_error("Bad ptr");
     }
-}
-
-void Component::afterResourceManager(){
-
 }
 
 

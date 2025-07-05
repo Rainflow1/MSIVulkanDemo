@@ -111,7 +111,7 @@ public:
 
             if(ImGui::Button("Apply")){
                 //TODO check if exists
-                GameObject* obj = spawnGameObject(name);
+                std::shared_ptr<GameObject> obj = spawnGameObject(name);
                 obj->addComponent<TransformComponent>();
 
                 ImGui::CloseCurrentPopup();
@@ -128,7 +128,7 @@ public:
 
         ImGui::Begin("Component inspector", NULL, ImGuiWindowFlags_NoCollapse);
 
-        GameObject* selectedObject = getGameObject(selected);
+        std::shared_ptr<GameObject> selectedObject = getGameObject(selected);
         
         if(selectedObject){
             for(auto& component : selectedObject->getAllComponents()){
@@ -171,12 +171,12 @@ public:
 
         ImGui::End();
 
-
         auto scriptView = entityRegistry->view<ScriptComponent>();
 
         for(auto script : scriptView){
             scriptView.get<ScriptComponent>(script).execUpdate(deltaTime);
         }
+
 
         return this->update(deltaTime, input);
     }
@@ -200,7 +200,15 @@ public:
             }),
             VulkanRenderGraph::AddDepthBuffer()
         );
-
+/*
+        renderGraph->addRenderPass("Postprocess",
+            //VulkanRenderGraph::SetRenderTargetInput("ShadowMap"), 
+            VulkanRenderGraph::AddRenderFunction([&](VulkanCommandBuffer& commandBuffer){
+                this->render(commandBuffer);
+            }),
+            VulkanRenderGraph::AddDepthBuffer()
+        );
+*/
         if(this->gui){
 
             renderGraph->addRenderPass("UI", 
@@ -262,7 +270,7 @@ public:
 
         auto skybox = entityRegistry->view<SkyboxRendererComponent>();
 
-        if(GameObject* skybox = getGameObject("Skybox"); skybox){
+        if(std::shared_ptr<GameObject> skybox = getGameObject("Skybox"); skybox){
             
             if(!skybox->getComponent<MaterialComponent>().getDescriptorSet().size()){
                 renderGraph->registerDescriptorSet(&skybox->getComponent<MaterialComponent>());
@@ -318,7 +326,7 @@ public:
         gameObjects.clear();
 
         for(auto& [name, gameObj] : scene["objects"].items()){
-            auto* obj = spawnGameObject(name); 
+            auto obj = spawnGameObject(name); 
             obj->loadFromJson(gameObj);
         }
 
@@ -326,18 +334,17 @@ public:
     }
 
 public:
-    GameObject* spawnGameObject(std::string objName){
+    std::shared_ptr<GameObject> spawnGameObject(std::string objName){
         std::shared_ptr<GameObject> ptr = std::make_shared<GameObject>(entityRegistry, resourceManager, this);
         gameObjects.insert({objName, ptr});
-        return &*ptr;
+        return ptr;
     }
 
-    GameObject* getGameObject(std::string objName){     
+    std::shared_ptr<GameObject> getGameObject(std::string objName){     
         if(gameObjects.find(objName) == gameObjects.end()){
             return nullptr;
         }
-        std::shared_ptr<GameObject> ptr = gameObjects[objName];
-        return &*ptr;
+        return gameObjects[objName];
     }
 
     std::vector<std::pair<std::string, std::shared_ptr<GameObject>>> getAllGameObjects(){
@@ -379,15 +386,15 @@ public:
     void setup(){
         
         auto skyboxTex = resourceManager->getResource<Texture>({
-            "./textures/skybox/right.jpg",
-            "./textures/skybox/left.jpg",
-            "./textures/skybox/top.jpg",
-            "./textures/skybox/bottom.jpg",
-            "./textures/skybox/front.jpg",
-            "./textures/skybox/back.jpg"
+            "./textures/mrzezinoSkybox/px.png",
+            "./textures/mrzezinoSkybox/nx.png",
+            "./textures/mrzezinoSkybox/py.png",
+            "./textures/mrzezinoSkybox/ny.png",
+            "./textures/mrzezinoSkybox/pz.png",
+            "./textures/mrzezinoSkybox/nz.png"
         });
 
-        GameObject* lightSrc = spawnGameObject("light source");
+        std::shared_ptr<GameObject> lightSrc = spawnGameObject("light source");
         lightSrc->addComponent<TransformComponent>(
             glm::vec3(1.0f, 0.0f, 0.0f), 
             glm::vec3(0.0f, 0.0f, 0.0f),
@@ -420,8 +427,8 @@ public:
 
 
 
-        /*
-        GameObject* pbr = spawnGameObject("pbr");
+
+        auto pbr = spawnGameObject("pbr");
         pbr->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLighting.glsl"));
         pbr->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/sphereHighpoly.glb"));
         pbr->addComponent<TransformComponent>(
@@ -438,7 +445,7 @@ public:
         pbr->getComponent<MaterialComponent>().setTexture("Skybox", skyboxTex);
 
 
-        GameObject* pbrTex = spawnGameObject("pbrTex");
+        auto pbrTex = spawnGameObject("pbrTex");
         pbrTex->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/PBRLightingTexture.glsl"));
         pbrTex->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/torusHighpoly.glb"));
         pbrTex->addComponent<TransformComponent>(
@@ -457,7 +464,7 @@ public:
 
         pbrTex->getComponent<MaterialComponent>().setTexture("Skybox", skyboxTex);
 
-        GameObject* phong = spawnGameObject("phong");
+        auto phong = spawnGameObject("phong");
         phong->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/phongLighting.glsl"));
         phong->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cube.glb"));
         phong->addComponent<TransformComponent>(
@@ -478,7 +485,7 @@ public:
         //script.getScript("BindToUniform")->setProperty<PythonBindings::ObjectRef>("bindedObj", PythonBindings::ObjectRef());
 
         
-        GameObject* obj2 = spawnGameObject("Object2");
+        auto obj2 = spawnGameObject("Object2");
         obj2->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/default.glsl"));
         obj2->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cubeuv.glb"));
         obj2->addComponent<TransformComponent>(
@@ -491,7 +498,7 @@ public:
         
 
 
-        GameObject* gouraudPhong = spawnGameObject("gouraudPhong");
+        auto gouraudPhong = spawnGameObject("gouraudPhong");
         gouraudPhong->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/gouraudPhongLighting.glsl"));
         gouraudPhong->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/sphereHighpoly.glb"));
         gouraudPhong->addComponent<TransformComponent>(
@@ -507,7 +514,7 @@ public:
         gouraudPhong->getComponent<MaterialComponent>().setUniform<float>("shininess", 64.0f);
 
 
-        GameObject* phongTex = spawnGameObject("phongTex");
+        auto phongTex = spawnGameObject("phongTex");
         phongTex->addComponent<MaterialComponent>(resourceManager->getResource<ShaderProgram>("./shaders/phongLightingTexture.glsl"));
         phongTex->addComponent<ModelComponent>(resourceManager->getResource<Mesh>("./models/cubeuv.glb"));
         phongTex->addComponent<TransformComponent>(
@@ -522,13 +529,13 @@ public:
         phongTex->getComponent<MaterialComponent>().setUniform<glm::vec3>("specular", {1.0f, 0.0f, 1.0f});
         phongTex->getComponent<MaterialComponent>().setUniform<float>("shininess", 32.0f);
         phongTex->getComponent<MaterialComponent>().setTexture("tex", resourceManager->getResource<Texture>("./textures/Tiles.jpg"));
-        */
+        
 
 
 
 
 
-        GameObject* skybox = spawnGameObject("Skybox");
+        std::shared_ptr<GameObject> skybox = spawnGameObject("Skybox");
         auto& mat = skybox->addComponent<MaterialComponent>(
             resourceManager->getResource<ShaderProgram>("./shaders/skybox.glsl")
         );
@@ -547,7 +554,7 @@ public:
     }
 
     void update(float deltaTime, Input& input){
-
+/*
         auto light = getGameObject("light source");
 
         if(light){
@@ -562,7 +569,7 @@ public:
                 }
             }
         }        
-
+*/
 /*
         static float totalTime = 0.0;
         totalTime += deltaTime;
@@ -607,7 +614,7 @@ public:
     }
 
     void update(float deltaTime, Input& input){
-
+/*
         auto light = getGameObject("light source");
 
         if(light){
@@ -622,7 +629,7 @@ public:
                 }
             }
         }  
-
+*/
     }
 
 };

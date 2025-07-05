@@ -59,6 +59,16 @@ template<typename T, typename... Args>
 typename std::enable_if<std::is_base_of<Component, T>::value, T&>::type
 GameObject::addComponent(const Args&... args){
 
+    ComponentParams params;
+    params.gameobjectManager = gameobjectManager;
+    params.resourceManager = resourceManager;
+    params.owner = shared_from_this();
+
+    T& component = entityRegistry->emplace<T>(entityID, params, args...);
+
+    return component;
+
+/*
     if constexpr(std::is_constructible<T, std::shared_ptr<ResourceManager>, Args...>::value){
         T& component = entityRegistry->emplace<T>(entityID, resourceManager, args...);
         static_cast<Component&>(component).owner = shared_from_this();
@@ -74,7 +84,8 @@ GameObject::addComponent(const Args&... args){
         component.afterResourceManager();
 
         return component;
-    }        
+    }  
+*/      
 }
 
 
@@ -118,9 +129,10 @@ Component& GameObject::addComponent(componentName name){
 
 template<template<typename, typename...> typename TYPELIST, typename H, typename... T>
 typename std::enable_if<
-    (std::is_constructible<H, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<H>::value) 
-    && std::is_base_of<Component, H>::value && (std::is_base_of<Component, T>::value && ...) 
-    && ( (std::is_constructible<T, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<T>::value) && ...),
+    (std::is_constructible_v<H, ComponentParams&>) 
+    && std::is_base_of<Component, H>::value 
+    && (std::is_base_of<Component, T>::value && ...) 
+    && (std::is_constructible_v<T, ComponentParams&> && ...),
     Component&
 >::type
 GameObject::addComponent(componentName name, TYPELIST<H, T...> list){
@@ -137,17 +149,13 @@ GameObject::addComponent(componentName name, TYPELIST<H, T...> list){
 
 template<template<typename> typename TYPELIST, typename H>
 typename std::enable_if<
-    (std::is_constructible<H, std::shared_ptr<ResourceManager>>::value || std::is_default_constructible<H>::value) 
+    (std::is_constructible_v<H, ComponentParams&>) 
     && std::is_base_of<Component, H>::value, 
     Component&
 >::type
 GameObject::addComponent(componentName name, TYPELIST<H> list){
     if(typeid(H).name() == name && !entityRegistry->all_of<H>(entityID)){
-        if constexpr(std::is_constructible_v<H, std::shared_ptr<ResourceManager>>){
-            return static_cast<Component&>(addComponent<H>(resourceManager));
-        }else{
-            return static_cast<Component&>(addComponent<H>());
-        }
+        return static_cast<Component&>(addComponent<H>());
     }else{
         throw std::runtime_error("Component of name: " + name + " not found");
     }

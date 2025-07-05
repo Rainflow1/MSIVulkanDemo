@@ -18,7 +18,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(nfd REQUIRED)
 find_package(pybind11 REQUIRED)
 find_package(Python3 COMPONENTS Development REQUIRED)
-
+find_package(glslang REQUIRED)
 
 add_executable(MSIVulkanDemo src/main.cpp)
 
@@ -38,6 +38,7 @@ target_link_libraries(MSIVulkanDemo nlohmann_json::nlohmann_json)
 target_link_libraries(MSIVulkanDemo nfd::nfd)
 target_link_libraries(MSIVulkanDemo Python3::Python)
 target_link_libraries(MSIVulkanDemo pybind11::embed)
+target_link_libraries(MSIVulkanDemo glslang::glslang)
 
 add_custom_target(copy_shaders
 	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different 

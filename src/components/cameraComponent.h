@@ -19,7 +19,7 @@ private:
     
 
 public:
-    CameraComponent(){
+    CameraComponent(ComponentParams& params): Component(params){
         
     }
 

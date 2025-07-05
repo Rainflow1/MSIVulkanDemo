@@ -22,22 +22,22 @@ private:
     std::map<std::string, std::shared_ptr<Texture>> textures;
 
 public:
-    MaterialComponent(std::shared_ptr<ResourceManager> resMgr): Component(resMgr), shaderProgram(resMgr->getResource<ShaderProgram>("./shaders/default.glsl")){
-
+    MaterialComponent(ComponentParams& params): Component(params), shaderProgram(resourceManager->getResource<ShaderProgram>("./shaders/default.glsl")){
+        updateUniforms(); // WARN test me
     }
 
-    MaterialComponent(std::shared_ptr<ShaderProgram> shaderProgram) : shaderProgram(shaderProgram){
-
+    MaterialComponent(ComponentParams& params, std::shared_ptr<ShaderProgram> shaderProgram): Component(params), shaderProgram(shaderProgram){
+        updateUniforms();
     }
 
     ~MaterialComponent(){
         
     }
-
+/*
     void afterResourceManager() override{
         updateUniforms();
     };
-
+*/
     std::shared_ptr<VulkanGraphicsPipeline> getGraphicsPipeline(){
         return shaderProgram->getGraphicsPipeline();
     }
@@ -143,7 +143,7 @@ public:
                 std::shared_ptr<ShaderProgram> newShaderProgram;
 
                 try{
-                    newShaderProgram = resourceManager->getResource<ShaderProgram>(std::filesystem::relative(FileDialog::fileDialog().getPath()).string());
+                    newShaderProgram = resourceManager->getResource<ShaderProgram>(FileDialog::fileDialog().getPath());
                 }catch(std::exception ex){
                     std::cout << "Can`t compile shader" << std::endl;
                 }
@@ -243,7 +243,7 @@ public:
                         ImGui::Text((names[i] + ": ").c_str());
                         ImGui::SameLine();
                         if(ImGui::SmallButton((filePaths[i] + "##" + name + names[i]).c_str())){ 
-                            auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                            auto filePath = FileDialog::fileDialog().getPath();
 
                             if(!filePath.empty()){
                                 filePaths[i] = filePath;
@@ -266,7 +266,7 @@ public:
                     ImGui::Text((name + ": ").c_str());
                     ImGui::SameLine();
                     if(ImGui::SmallButton((tex->getPath() + "##" + name).c_str())){
-                        auto filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                        auto filePath = FileDialog::fileDialog().getPath();
 
                         if(!filePath.empty()){
                             setTexture(name, resourceManager->getResource<Texture>(filePath));

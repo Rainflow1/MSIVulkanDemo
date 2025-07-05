@@ -15,12 +15,13 @@
     "nativefiledialog-extended",
     "nlohmann-json",
     "pybind11",
+    "python3",
     "shaderc",
     "spirv-reflect",
     "stb",
     "tinygltf",
     "vulkan",
     "vulkan-memory-allocator",
-    "python3"
+    "shader-slang"
   ]
 }

@@ -17,11 +17,11 @@ private:
     std::shared_ptr<Mesh> mesh;
 
 public:
-    ModelComponent(std::shared_ptr<ResourceManager> resMgr) : Component(resMgr), mesh(resMgr->getResource<Mesh>("./models/cubeuv.glb")){
+    ModelComponent(ComponentParams& params): Component(params), mesh(resourceManager->getResource<Mesh>("./models/cubeuv.glb")){
         
     }
 
-    ModelComponent(std::shared_ptr<Mesh> mesh): mesh(mesh){
+    ModelComponent(ComponentParams& params, std::shared_ptr<Mesh> mesh): Component(params), mesh(mesh){
         
     }
     
@@ -45,7 +45,7 @@ public:
                     std::shared_ptr<Mesh> newMesh;
 
                     try{
-                        std::string pth = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                        std::string pth = FileDialog::fileDialog().getPath();
                         if(!pth.empty())
                             newMesh = resourceManager->getResource<Mesh>(pth);
                     }catch(std::exception ex){

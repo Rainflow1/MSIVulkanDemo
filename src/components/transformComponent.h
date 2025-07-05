@@ -14,23 +14,23 @@ private:
     glm::vec3 position, scale, rotation;
 
 public:
-    TransformComponent(): position(glm::vec3(0.0f, 0.0f, 0.0f)), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
+    TransformComponent(ComponentParams& params): Component(params), position(glm::vec3(0.0f, 0.0f, 0.0f)), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
 
     }
 
-    TransformComponent(std::shared_ptr<ResourceManager> resMgr): position(glm::vec3(0.0f, 0.0f, 0.0f)), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
+    TransformComponent(ComponentParams& params, std::shared_ptr<ResourceManager> resMgr): Component(params), position(glm::vec3(0.0f, 0.0f, 0.0f)), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
 
     }
 
-    TransformComponent(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale): position(position), scale(scale), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
+    TransformComponent(ComponentParams& params, glm::vec3 position, glm::vec3 rotation, glm::vec3 scale): Component(params), position(position), scale(scale), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
 
     }
 
-    TransformComponent(glm::vec3 position): position(position), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
+    TransformComponent(ComponentParams& params, glm::vec3 position): Component(params), position(position), scale(glm::vec3(1.0f, 1.0f, 1.0f)), rotation(glm::vec3(0.0f, 0.0f, 0.0f)){
 
     }
 
-    TransformComponent(const TransformComponent& copy): position(copy.position), scale(copy.scale), rotation(copy.rotation){
+    TransformComponent(const TransformComponent& copy): Component(copy), position(copy.position), scale(copy.scale), rotation(copy.rotation){
 
     }
 

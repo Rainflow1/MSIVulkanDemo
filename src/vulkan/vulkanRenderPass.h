@@ -24,6 +24,7 @@ class VulkanGraphicsPipeline;
 class VulkanFramebuffer;
 
 class VulkanRenderPass: public VulkanComponent<VulkanRenderPass>, public VulkanRenderPassI{
+
 private:
     std::shared_ptr<VulkanSwapChainI> swapChain;
 
@@ -36,8 +37,7 @@ protected:
     
     std::map<std::string, std::shared_ptr<VulkanImageView>> imageViews;
 
-    std::vector<VkAttachmentDescription> attachments;
-    std::vector<VkAttachmentReference> attachmentRefs;
+    std::map<std::string, std::pair<VkAttachmentDescription, VkAttachmentReference>> attachments;
 
     VkSubpassDependency dependency{};
 
@@ -46,7 +46,12 @@ public:
 
     VulkanRenderPass(std::shared_ptr<VulkanSwapChainI> swapChain): swapChain(swapChain){
 
+        swapChain->addSwapChainRecreateCallback([&](VulkanSwapChainI& swapChain){
+            this->recreateFramebuffers(swapChain);
+        });
+
         addAttachment(
+            "Color",
             swapChain->getImageFormat(), 
             VK_SAMPLE_COUNT_1_BIT, 
             VK_ATTACHMENT_LOAD_OP_CLEAR, 
@@ -73,25 +78,31 @@ public:
         }
     }
 
-    void createRenderPass(){
+    void bake(){
 
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; 
         subpass.colorAttachmentCount = 1; // TODO allow for more
 
-        for(auto& ref : attachmentRefs){
-            if(ref.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
-                subpass.pDepthStencilAttachment = &ref;
+        for(const auto& [name, attach] : attachments){
+            if(attach.second.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){
+                subpass.pDepthStencilAttachment = &attach.second;
             }
-            if(ref.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL){
-                subpass.pColorAttachments = &ref;
+            if(attach.second.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL){
+                subpass.pColorAttachments = &attach.second;
             }
+        }
+
+        std::vector<VkAttachmentDescription> attachs;
+
+        for(const auto& [name, attach] : attachments){
+            attachs.push_back(attach.first);
         }
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = attachments.size();
-        renderPassInfo.pAttachments = attachments.data();
+        renderPassInfo.attachmentCount = attachs.size();
+        renderPassInfo.pAttachments = attachs.data();
         renderPassInfo.subpassCount = 1;
         renderPassInfo.pSubpasses = &subpass;
         renderPassInfo.dependencyCount = 1;
@@ -106,8 +117,6 @@ public:
             views.push_back(image);
 
             std::transform(imageViews.begin(), imageViews.end(), std::back_inserter(views), [](auto &kv){ return kv.second;});
-
-            //views.insert(views.end(), imageViews.begin(), imageViews.end());
 
             framebuffers.push_back(std::shared_ptr<VulkanFramebuffer>(new VulkanFramebuffer(shared_from_this(), views)));
         }
@@ -137,7 +146,7 @@ public:
         return swapChain;
     }
 
-    void addAttachment(VkFormat format, VkSampleCountFlagBits sampleCount, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp, VkAttachmentLoadOp stencilLoadOp, VkAttachmentStoreOp stencilStoreOp, VkImageLayout initialLayout, VkImageLayout finalLayout, VkImageLayout layout){
+    void addAttachment(std::string name, VkFormat format, VkSampleCountFlagBits sampleCount, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp, VkAttachmentLoadOp stencilLoadOp, VkAttachmentStoreOp stencilStoreOp, VkImageLayout initialLayout, VkImageLayout finalLayout, VkImageLayout layout){
 
         VkAttachmentDescription attachment{};
         VkAttachmentReference attachmentRef{};
@@ -154,8 +163,11 @@ public:
         attachmentRef.attachment = attachments.size();
         attachmentRef.layout = layout;
 
-        attachments.push_back(attachment);
-        attachmentRefs.push_back(attachmentRef);
+        attachments.insert({name, {attachment, attachmentRef}});
+    }
+
+    VkAttachmentDescription& getAttachment(std::string name){
+        return attachments.at(name).first;
     }
 
     void addImageView(std::string name, std::shared_ptr<VulkanImageView> imageView){

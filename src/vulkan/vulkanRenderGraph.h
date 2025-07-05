@@ -25,10 +25,11 @@ class VulkanRenderGraph : public VulkanComponent<VulkanRenderGraph>{
 
     class Dependency;
 
-    class RenderGraphNode: public VulkanRenderPass{
+    class RenderGraphNode{
     private:
         std::weak_ptr<VulkanRenderGraph> renderGraph;
         std::shared_ptr<VulkanSwapChainI> swapChain;
+        std::shared_ptr<VulkanRenderPass> renderPass;
         std::string name;
 
         std::vector<std::shared_ptr<Dependency>> dependencies;
@@ -44,17 +45,17 @@ class VulkanRenderGraph : public VulkanComponent<VulkanRenderGraph>{
         std::weak_ptr<RenderGraphNode> inputNode;
 
     public:
-        RenderGraphNode(std::shared_ptr<VulkanRenderGraph> renderGraph, std::shared_ptr<VulkanSwapChainI> swapChain, std::string name): VulkanRenderPass(swapChain), renderGraph(renderGraph), swapChain(swapChain), name(name){
-
-            swapChain->addSwapChainRecreateCallback([&](VulkanSwapChainI& swapChain){
-                this->recreateFramebuffers(swapChain);
-            });
+        RenderGraphNode(std::shared_ptr<VulkanRenderGraph> renderGraph, std::shared_ptr<VulkanSwapChainI> swapChain, std::string name): renderPass(std::shared_ptr<VulkanRenderPass>(new VulkanRenderPass(swapChain))), renderGraph(renderGraph), swapChain(swapChain), name(name){
 
         }
         ~RenderGraphNode(){}
 
         std::function<void(VulkanCommandBuffer&)>& getRenderFunction(){
             return *renderFunction;
+        }
+
+        std::shared_ptr<VulkanRenderPass> getRenderPass(){
+            return renderPass;
         }
 
         void setRenderFunction(std::function<void(VulkanCommandBuffer&)>& fun){
@@ -65,10 +66,12 @@ class VulkanRenderGraph : public VulkanComponent<VulkanRenderGraph>{
             
             if(hasInputTarget){
                 inputNode = renderGraph.lock()->getNode(inputName);
+                renderPass->getAttachment("Color").initialLayout = inputNode.lock()->getRenderPass()->getAttachment("Color").finalLayout;
+                renderPass->getAttachment("Color").loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
             }
 
             // TODO validate ? 
-            createRenderPass();
+            renderPass->bake();
             isBaked = true;
         }
 
@@ -78,7 +81,8 @@ class VulkanRenderGraph : public VulkanComponent<VulkanRenderGraph>{
 
         void markOutput(){
             isOutputTarget = true;
-            attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // FIXME
+
+            renderPass->getAttachment("Color").finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // FIXME
         }
 
         bool isMarkedAsOutput(){
@@ -88,7 +92,6 @@ class VulkanRenderGraph : public VulkanComponent<VulkanRenderGraph>{
         void setInput(std::string nodeName){
             inputName = nodeName;
             hasInputTarget = true;
-            attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // FIXME
         }
 
         std::shared_ptr<RenderGraphNode> getInputNode(){
@@ -181,8 +184,6 @@ public:
             throw std::runtime_error("RenderGraph needs a output node"); // TODO make renderGraph own exception class, and throw them from appriopriate classes
         }
 
-        
-
         std::shared_ptr<RenderGraphNode> nextNode = outputNode;
 
         while(nextNode){
@@ -212,7 +213,7 @@ public:
         for(auto node : nodesQueue){
             // TODO synch
             //auto frameBuffer = swapChain->getFramebuffer(imageId, std::static_pointer_cast<VulkanRenderPass>(node));
-            auto frameBuffer = node->getFramebuffer(imageId);
+            auto frameBuffer = node->getRenderPass()->getFramebuffer(imageId);
             commandBuffers[frameIndex]->beginRenderPass(frameBuffer);
             node->getRenderFunction()(*commandBuffers[frameIndex]);
             commandBuffers[frameIndex]->endRenderPass();
@@ -223,15 +224,7 @@ public:
         swapChain->presentImage(*renderFinishedSemaphores[frameIndex], imageId);
         inFlightFences[frameIndex]->waitFor();
     }
-/*
-    std::vector<std::shared_ptr<VulkanDescriptorSet>> registerDescriptorSet(VulkanUniformData& uniformData){
-        std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
-        for(auto buffer : commandBuffers){
-            sets.push_back(buffer->createDescriptorSet(uniformData));
-        }
-        return sets;
-    }
-*/
+
     void registerDescriptorSet(VulkanDescriptorSetOwner* owner){
         std::vector<std::shared_ptr<VulkanDescriptorSet>> sets;
         if(owner->getDescriptorSet().size() > 0){
@@ -255,7 +248,7 @@ public:
             throw std::runtime_error("Renderpass needs to be baked");
         }
 
-        return std::static_pointer_cast<VulkanRenderPass>(nodes[name]);
+        return nodes[name]->getRenderPass();
     }
 
 private:
@@ -336,12 +329,12 @@ public:
 
         void apply(RenderGraphNode& node){
             
-            VkFormat depthFormat = node.getSwapChain()->getDevice()->getPhysicalDevice().findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            VkFormat depthFormat = node.getRenderPass()->getSwapChain()->getDevice()->getPhysicalDevice().findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
             // TODO has stencil component https://vulkan-tutorial.com/Depth_buffering
 
-            std::shared_ptr<VulkanImage> depthImage = node.getSwapChain()->getDevice()->getMemoryManager()->createImage<VulkanImage>(
-                std::pair<uint32_t, uint32_t>({node.getSwapChain()->getSwapChainExtent().width, node.getSwapChain()->getSwapChainExtent().height}),
+            std::shared_ptr<VulkanImage> depthImage = node.getRenderPass()->getSwapChain()->getDevice()->getMemoryManager()->createImage<VulkanImage>(
+                std::pair<uint32_t, uint32_t>({node.getRenderPass()->getSwapChain()->getSwapChainExtent().width, node.getRenderPass()->getSwapChain()->getSwapChainExtent().height}),
                 VulkanImage::constructParameters({
                     .format = depthFormat, 
                     .tiling = VK_IMAGE_TILING_OPTIMAL, 
@@ -352,11 +345,11 @@ public:
             
             depthView = depthImage->createImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
 
-            node.addAttachment(depthFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            node.getRenderPass()->addAttachment("Depth", depthFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-            node.addDependencyMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+            node.getRenderPass()->addDependencyMask(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
-            node.addImageView("DepthBuffer", depthView);
+            node.getRenderPass()->addImageView("DepthBuffer", depthView);
         }
         Dependency* clone() const{return new AddDepthBuffer(*this);}
     };

@@ -182,7 +182,7 @@ private:
     }
 
     void loadScene(){
-        scene = std::unique_ptr<Scene>(new DefaultScene());
+        scene = std::unique_ptr<Scene>(new SimpleScene());
         scene->loadGui(imgui);
         
         vulkan->loadRenderGraph(*scene);
@@ -235,7 +235,7 @@ private:
 
             if (ImGui::BeginMenu("Scene")){
                 if (ImGui::MenuItem("Open scene", "Ctrl+O")){
-                    std::string filePath = std::filesystem::relative(FileDialog::fileDialog().getPath()).string();
+                    std::string filePath = FileDialog::fileDialog().getPath();
                     if(!filePath.empty()){
                         std::ifstream inputFile(filePath);
                         scene->loadFromJson(json::parse(inputFile)["scene"]);
@@ -243,7 +243,7 @@ private:
                 }
 
                 if (ImGui::MenuItem("Save scene", "Ctrl+S")){
-                    std::string filePath = std::filesystem::relative(FileDialog::fileDialog().savePath("scene.json")).string();
+                    std::string filePath = FileDialog::fileDialog().savePath("scene.json");
                     if(!filePath.empty()){
                         std::ofstream outputFile(filePath);
                         outputFile << std::setw(2) << json({{"scene", scene->saveToJson()}});

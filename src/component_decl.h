@@ -12,6 +12,15 @@ namespace MSIVulkanDemo{
 
 class GameObject;
 
+struct ComponentParams{
+    friend Component;
+    friend GameObject;
+private:
+    std::shared_ptr<ResourceManager> resourceManager;
+    GameobjectManagerI* gameobjectManager; // TODO to weak ptr
+    std::weak_ptr<GameObject> owner;
+};
+
 class Component : JsonI{
     friend GameObject;
 
@@ -21,11 +30,9 @@ protected:
     std::weak_ptr<GameObject> owner;
 
 public:
-    Component();
+    Component(ComponentParams&);
 
-    Component(std::shared_ptr<ResourceManager> resourceManager);
-
-    Component(Component& copy);
+    Component(const Component& copy);
     Component(Component&&) = delete;
 
 private:
@@ -36,7 +43,7 @@ protected:
     typename std::enable_if<std::is_base_of<Component, T>::value, T&>::type
     getComponent();
 
-    virtual void afterResourceManager();
+    //virtual void afterResourceManager();
 
 public:
     virtual void guiDisplayInspector() = 0;
